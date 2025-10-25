@@ -1,0 +1,16 @@
+skeleton.png
+size: 200, 40
+format: RGBA8888
+filter: Linear, Linear
+repeat: none
+pma: false
+skeleton_walk0
+  bounds: 0, 0, 40, 40
+skeleton_walk1
+  bounds: 40, 0, 40, 40
+skeleton_walk2
+  bounds: 80, 0, 40, 40
+skeleton_attack1
+  bounds: 120, 0, 40, 40
+skeleton_attack2
+  bounds: 160, 0, 40, 40
