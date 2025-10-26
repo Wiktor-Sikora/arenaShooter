@@ -3,6 +3,7 @@ package io.github.arenaShooter;
 import com.badlogic.gdx.ApplicationAdapter;
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.Input;
+import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.graphics.g2d.TextureAtlas;
@@ -48,30 +49,16 @@ public class Main extends ApplicationAdapter {
         atlasDeath = new TextureAtlas(Gdx.files.internal("death.atlas"));
         enemy = new Enemy((float)(Math.random() * 501), (float)(Math.random() * 501), atlasSkeleton, atlasDeath);
 
-
         camera.position.set(playerX, playerY, 0);
-        camera.update();
     }
 
     @Override
     public void render() {
-        ScreenUtils.clear(0, 0, 0, 0); //black bg
+        input();
+        logic();
+        draw();
 
-        float delta = com.badlogic.gdx.Gdx.graphics.getDeltaTime();
-
-        if (Gdx.input.isKeyPressed(Input.Keys.W)) playerY += playerSpeed * delta;
-        if (Gdx.input.isKeyPressed(Input.Keys.S)) playerY -= playerSpeed * delta;
-        if (Gdx.input.isKeyPressed(Input.Keys.A)) playerX -= playerSpeed * delta;
-        if (Gdx.input.isKeyPressed(Input.Keys.D)) playerX += playerSpeed * delta;
-
-        //player does not exceed the border of the map
-        playerX = MathUtils.clamp(playerX,
-            AREA_OFFSET_X + PLAYER_MARGIN,
-            AREA_OFFSET_X + PLAYABLE_AREA_SIZE - PLAYER_MARGIN);
-        playerY = MathUtils.clamp(playerY,
-            AREA_OFFSET_Y + PLAYER_MARGIN,
-            AREA_OFFSET_Y + PLAYABLE_AREA_SIZE - PLAYER_MARGIN);
-
+        float delta = Gdx.graphics.getDeltaTime();
 
         camera.position.x += (playerX - camera.position.x) * 5f * delta;
         camera.position.y += (playerY - camera.position.y) * 5f * delta;
@@ -105,6 +92,29 @@ public class Main extends ApplicationAdapter {
                 }
             }
         }
+    }
+
+    private void input() {
+        float delta = Gdx.graphics.getDeltaTime();
+
+        if (Gdx.input.isKeyPressed(Input.Keys.W)) playerY += playerSpeed * delta;
+        if (Gdx.input.isKeyPressed(Input.Keys.S)) playerY -= playerSpeed * delta;
+        if (Gdx.input.isKeyPressed(Input.Keys.A)) playerX -= playerSpeed * delta;
+        if (Gdx.input.isKeyPressed(Input.Keys.D)) playerX += playerSpeed * delta;
+    }
+
+    private void logic() {
+        //player does not exceed the border of the map
+        playerX = MathUtils.clamp(playerX,
+            AREA_OFFSET_X + PLAYER_MARGIN,
+            AREA_OFFSET_X + PLAYABLE_AREA_SIZE - PLAYER_MARGIN);
+        playerY = MathUtils.clamp(playerY,
+            AREA_OFFSET_Y + PLAYER_MARGIN,
+            AREA_OFFSET_Y + PLAYABLE_AREA_SIZE - PLAYER_MARGIN);
+    }
+
+    private void draw() {
+        ScreenUtils.clear(Color.BLACK);
     }
 
     @Override
