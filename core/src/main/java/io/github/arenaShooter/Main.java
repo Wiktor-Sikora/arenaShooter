@@ -22,7 +22,12 @@ public class Main extends ApplicationAdapter {
     private float playerX = 500;
     private float playerY = 500;
     private float playerSpeed = 300;
-    private final float MAP_SIZE = 1000;
+    private final float MAP_TEXTURE_SIZE = 1100;
+    private final float PLAYABLE_AREA_SIZE = 1000;
+    private final float PLAYER_MARGIN = 28;
+
+    private final float AREA_OFFSET_X = (MAP_TEXTURE_SIZE - PLAYABLE_AREA_SIZE) / 2f;
+    private final float AREA_OFFSET_Y = (MAP_TEXTURE_SIZE - PLAYABLE_AREA_SIZE) / 2f;
 
     private Enemy enemy;
     private TextureAtlas atlasSkeleton;
@@ -37,6 +42,7 @@ public class Main extends ApplicationAdapter {
         player = new Texture("dummy.png");
         map = new Texture("map.png");
 
+
         atlasSkeleton = new TextureAtlas(Gdx.files.internal("skeleton.atlas"));
         enemy = new Enemy((float)(Math.random() * 501), (float)(Math.random() * 501), atlasSkeleton);
 
@@ -47,7 +53,7 @@ public class Main extends ApplicationAdapter {
 
     @Override
     public void render() {
-        ScreenUtils.clear(0, 0, 0, 1); //black bg
+        ScreenUtils.clear(0, 0, 0, 0); //black bg
 
         float delta = com.badlogic.gdx.Gdx.graphics.getDeltaTime();
 
@@ -57,9 +63,12 @@ public class Main extends ApplicationAdapter {
         if (Gdx.input.isKeyPressed(Input.Keys.D)) playerX += playerSpeed * delta;
 
         //player does not exceed the border of the map
-        float margin = 32f;
-        playerX = MathUtils.clamp(playerX, margin, MAP_SIZE - margin);
-        playerY = MathUtils.clamp(playerY, margin, MAP_SIZE - margin);
+        playerX = MathUtils.clamp(playerX,
+            AREA_OFFSET_X + PLAYER_MARGIN,
+            AREA_OFFSET_X + PLAYABLE_AREA_SIZE - PLAYER_MARGIN);
+        playerY = MathUtils.clamp(playerY,
+            AREA_OFFSET_Y + PLAYER_MARGIN,
+            AREA_OFFSET_Y + PLAYABLE_AREA_SIZE - PLAYER_MARGIN);
 
 
         camera.position.x += (playerX - camera.position.x) * 5f * delta;
@@ -68,8 +77,8 @@ public class Main extends ApplicationAdapter {
         float halfWidth = viewport.getWorldWidth() / 2f;
         float halfHeight = viewport.getWorldHeight() / 2f;
 
-        camera.position.x = MathUtils.clamp(camera.position.x, halfWidth, MAP_SIZE - halfWidth);
-        camera.position.y = MathUtils.clamp(camera.position.y, halfHeight, MAP_SIZE - halfHeight);
+        camera.position.x = MathUtils.clamp(camera.position.x, halfWidth, MAP_TEXTURE_SIZE - halfWidth);
+        camera.position.y = MathUtils.clamp(camera.position.y, halfHeight, MAP_TEXTURE_SIZE - halfHeight);
 
         camera.update();
         batch.setProjectionMatrix(camera.combined);
@@ -77,7 +86,7 @@ public class Main extends ApplicationAdapter {
         enemy.update(delta, playerX, playerY);
 
         batch.begin();
-        batch.draw(map, 0, 0, MAP_SIZE, MAP_SIZE);
+        batch.draw(map, 0, 0, MAP_TEXTURE_SIZE, MAP_TEXTURE_SIZE);
         batch.draw(player, playerX - 32, playerY - 32, 64, 64);
         enemy.render(batch);
         batch.end();
@@ -93,5 +102,7 @@ public class Main extends ApplicationAdapter {
         batch.dispose();
         player.dispose();
         map.dispose();
+        map.dispose();
+        enemy.dispose();
     }
 }
