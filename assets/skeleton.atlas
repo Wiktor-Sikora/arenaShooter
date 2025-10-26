@@ -4,13 +4,13 @@ format: RGBA8888
 filter: Linear, Linear
 repeat: none
 pma: false
-skeleton_walk0
+skeleton_walk_0
   bounds: 0, 0, 40, 40
-skeleton_walk1
+skeleton_walk_1
   bounds: 40, 0, 40, 40
-skeleton_walk2
+skeleton_walk_2
   bounds: 80, 0, 40, 40
-skeleton_attack1
+skeleton_attack_0
   bounds: 120, 0, 40, 40
-skeleton_attack2
+skeleton_attack_1
   bounds: 160, 0, 40, 40
