@@ -1,9 +1,12 @@
 package io.github.arenaShooter;
 
+import com.badlogic.gdx.Gdx;
+import com.badlogic.gdx.audio.Sound;
 import com.badlogic.gdx.graphics.g2d.Animation;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.graphics.g2d.TextureAtlas;
 import com.badlogic.gdx.graphics.g2d.TextureRegion;
+import com.badlogic.gdx.math.Rectangle;
 import com.badlogic.gdx.utils.Array;
 import com.badlogic.gdx.math.Vector2;
 import java.util.ArrayList;
@@ -28,40 +31,68 @@ public class Enemy {
 
     private Animation<TextureRegion> walkAnimation;
     private Animation<TextureRegion> attackAnimation;
+    private Animation<TextureRegion> deathAnimation;
+    private Sound deathSound;
     private float stateTime = 0f;
     private boolean flipped = false;
+
+    private int health = 100;
+    private final int DAMAGE_ON_CONTACT = 50;
+    private float damageCooldown = 1f;
+    private float damageTimer = 0f;
 
     private int attackCount = 0;
     private final int maxAttacks = 3;
     private float restTime = 0f;
     private final float REST_DURATION = 1f;
-
     private boolean hasShotThisCycle = false;
 
+    private boolean deathAnimationFinished = false;
     private List<Bullet> bullets = new ArrayList<>();
 
-    public Enemy(float startX, float startY, TextureAtlas atlas) {
+
+
+    public Enemy(float startX, float startY, TextureAtlas atlasEnemy, TextureAtlas atlasDeath) {
         this.x = startX;
         this.y = startY;
 
         Array<TextureRegion> walkFrames = new Array<>();
-        walkFrames.add(atlas.findRegion("skeleton_walk0"));
-        walkFrames.add(atlas.findRegion("skeleton_walk1"));
-        walkFrames.add(atlas.findRegion("skeleton_walk2"));
+        for (int i = 0; i < 3; i++) {
+            walkFrames.add(atlasEnemy.findRegion("skeleton_walk_" + i));
+        }
         walkAnimation = new Animation<>(0.15f, walkFrames, Animation.PlayMode.LOOP);
 
         Array<TextureRegion> attackFrames = new Array<>();
-        attackFrames.add(atlas.findRegion("skeleton_attack1"));
-        attackFrames.add(atlas.findRegion("skeleton_attack2"));
+        for (int i = 0; i < 2; i++) {
+            attackFrames.add(atlasEnemy.findRegion("skeleton_attack_" + i));
+        }
         attackAnimation = new Animation<>(0.15f, attackFrames, Animation.PlayMode.NORMAL);
+
+        Array<TextureRegion> deathFrames = new Array<>();
+        for (int i = 0; i < 47; i++) {
+            deathFrames.add(atlasDeath.findRegion("death_animation" + i));
+        }
+        deathAnimation = new Animation<>(0.05f, deathFrames, Animation.PlayMode.NORMAL);
+
+        deathSound = Gdx.audio.newSound(Gdx.files.internal("death_sound.mp3"));
 
     }
 
     //update state
     public void update(float delta, float playerX, float playerY) {
-        if (!alive) return;
+
+        if (state == State.DEAD) {
+            stateTime += delta;
+            if (deathAnimation.isAnimationFinished(stateTime)) {
+                alive = false;
+                deathAnimationFinished = true;
+            }
+            return;
+        }
+
 
         stateTime += delta;
+        damageTimer += delta;
 
         float dx = playerX - x;
         float dy = playerY - y;
@@ -114,9 +145,13 @@ public class Enemy {
                 break;
 
             case DEAD:
-                //todo
+                if (deathAnimation.isAnimationFinished(stateTime)) {
+                    deathAnimationFinished = true;
+                }
                 break;
         }
+
+        checkPlayerCollision(playerX, playerY);
 
         //bullets update
         for (int i = bullets.size() - 1; i >= 0; i--) {
@@ -129,6 +164,28 @@ public class Enemy {
             }
         }
 
+    }
+
+    private void checkPlayerCollision(float playerX, float playerY) {
+        //collision rectangle for enemy and player
+        Rectangle enemyRect = new Rectangle(x, y, 64, 64);
+        Rectangle playerRect = new Rectangle(playerX - 32, playerY - 32, 64, 64);
+
+        if (enemyRect.overlaps(playerRect) && damageTimer >= damageCooldown) {
+            takeDamage(DAMAGE_ON_CONTACT);
+            damageTimer = 0f;
+        }
+    }
+
+    public void takeDamage(int amount) {
+        if (state == State.DEAD) return;
+        health -= amount;
+        System.out.println("Enemy HP: " + health);
+
+        if (health <= 0) {
+            health = 0;
+            kill();
+        }
     }
 
     //shoot
@@ -153,6 +210,14 @@ public class Enemy {
             case WALK:
                 currentFrame = walkAnimation.getKeyFrame(stateTime, true);
                 break;
+            case DEAD:
+                TextureRegion deathFrame = deathAnimation.getKeyFrame(stateTime, false);
+                if (deathFrame != null) {
+                    TextureRegion toDraw = new TextureRegion(deathFrame);
+                    if (flipped) toDraw.flip(true, false);
+                    batch.draw(toDraw, x, y, 72, 72);
+                }
+                return;
             case IDLE:
             default:
                 currentFrame = walkAnimation.getKeyFrame(0, false);
@@ -186,8 +251,14 @@ public class Enemy {
     }
 
     public void kill() {
-        alive = false;
+        if (state == State.DEAD) return;
+        deathSound.play();
         state = State.DEAD;
+        stateTime = 0f;
+    }
+
+    public boolean isDeathAnimationFinished() {
+        return stateTime > deathAnimation.getAnimationDuration();
     }
 
     public float getX() { return x; }

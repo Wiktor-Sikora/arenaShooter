@@ -31,6 +31,7 @@ public class Main extends ApplicationAdapter {
 
     private Enemy enemy;
     private TextureAtlas atlasSkeleton;
+    private TextureAtlas atlasDeath;
 
 
     @Override
@@ -44,7 +45,8 @@ public class Main extends ApplicationAdapter {
 
 
         atlasSkeleton = new TextureAtlas(Gdx.files.internal("skeleton.atlas"));
-        enemy = new Enemy((float)(Math.random() * 501), (float)(Math.random() * 501), atlasSkeleton);
+        atlasDeath = new TextureAtlas(Gdx.files.internal("death.atlas"));
+        enemy = new Enemy((float)(Math.random() * 501), (float)(Math.random() * 501), atlasSkeleton, atlasDeath);
 
 
         camera.position.set(playerX, playerY, 0);
@@ -83,13 +85,26 @@ public class Main extends ApplicationAdapter {
         camera.update();
         batch.setProjectionMatrix(camera.combined);
 
-        enemy.update(delta, playerX, playerY);
+        if (enemy != null) {
+            enemy.update(delta, playerX, playerY);
+        }
 
         batch.begin();
         batch.draw(map, 0, 0, MAP_TEXTURE_SIZE, MAP_TEXTURE_SIZE);
         batch.draw(player, playerX - 32, playerY - 32, 64, 64);
-        enemy.render(batch);
+        if (enemy != null) {
+            enemy.render(batch);
+        }
         batch.end();
+
+        if (enemy != null) {
+            if (!enemy.isAlive()) {
+                if (enemy.isDeathAnimationFinished()) {
+                    enemy.dispose();
+                    enemy = null;
+                }
+            }
+        }
     }
 
     @Override
@@ -103,6 +118,8 @@ public class Main extends ApplicationAdapter {
         player.dispose();
         map.dispose();
         map.dispose();
-        enemy.dispose();
+        if (enemy != null) {
+            enemy.dispose();
+        }
     }
 }
