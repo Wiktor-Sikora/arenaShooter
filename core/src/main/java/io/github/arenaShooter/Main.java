@@ -13,7 +13,6 @@ import com.badlogic.gdx.utils.ScreenUtils;
 import com.badlogic.gdx.graphics.OrthographicCamera;
 import com.badlogic.gdx.utils.viewport.FitViewport;
 
-
 public class Main extends ApplicationAdapter {
     private SpriteBatch batch;
     private OrthographicCamera camera;
@@ -61,9 +60,6 @@ public class Main extends ApplicationAdapter {
         input();
         logic();
         draw();
-        for (int i = 0; i < enemies.size; i++) {
-            System.out.println(enemies.get(i));
-        }
     }
 
     private void input() {
@@ -87,7 +83,12 @@ public class Main extends ApplicationAdapter {
             AREA_OFFSET_Y + PLAYABLE_AREA_SIZE - PLAYER_MARGIN);
 
         for (int i = 0; i < enemies.size; i++) {
-            enemies.get(i).update(delta, playerX, playerY);
+            if (enemies.get(i).isDeathAnimationFinished()) {
+                enemies.get(i).dispose();
+                enemies.removeIndex(i);
+            } else {
+                enemies.get(i).update(delta, playerX, playerY);
+            }
         }
     }
 
