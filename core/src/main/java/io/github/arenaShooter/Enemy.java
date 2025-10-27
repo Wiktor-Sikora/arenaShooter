@@ -50,8 +50,6 @@ public class Enemy {
     private boolean deathAnimationFinished = false;
     private List<Bullet> bullets = new ArrayList<>();
 
-
-
     public Enemy(float startX, float startY, TextureAtlas atlasEnemy, TextureAtlas atlasDeath) {
         this.x = startX;
         this.y = startY;
@@ -66,6 +64,7 @@ public class Enemy {
         for (int i = 0; i < 2; i++) {
             attackFrames.add(atlasEnemy.findRegion("skeleton_attack_" + i));
         }
+
         attackAnimation = new Animation<>(0.15f, attackFrames, Animation.PlayMode.NORMAL);
 
         Array<TextureRegion> deathFrames = new Array<>();

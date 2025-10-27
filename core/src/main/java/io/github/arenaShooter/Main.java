@@ -3,6 +3,8 @@ package io.github.arenaShooter;
 import com.badlogic.gdx.ApplicationAdapter;
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.Input;
+import com.badlogic.gdx.utils.Array;
+import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.graphics.g2d.TextureAtlas;
@@ -22,14 +24,14 @@ public class Main extends ApplicationAdapter {
     private float playerX = 500;
     private float playerY = 500;
     private float playerSpeed = 300;
-    private final float MAP_TEXTURE_SIZE = 1100;
-    private final float PLAYABLE_AREA_SIZE = 1000;
+    private final float MAP_TEXTURE_SIZE = 1500;
+    private final float PLAYABLE_AREA_SIZE = 1400;
     private final float PLAYER_MARGIN = 28;
 
     private final float AREA_OFFSET_X = (MAP_TEXTURE_SIZE - PLAYABLE_AREA_SIZE) / 2f;
     private final float AREA_OFFSET_Y = (MAP_TEXTURE_SIZE - PLAYABLE_AREA_SIZE) / 2f;
 
-    private Enemy enemy;
+    private Array<Enemy> enemies;
     private TextureAtlas atlasSkeleton;
     private TextureAtlas atlasDeath;
 
@@ -43,26 +45,38 @@ public class Main extends ApplicationAdapter {
         player = new Texture("dummy.png");
         map = new Texture("map.png");
 
-
         atlasSkeleton = new TextureAtlas(Gdx.files.internal("skeleton.atlas"));
         atlasDeath = new TextureAtlas(Gdx.files.internal("death.atlas"));
-        enemy = new Enemy((float)(Math.random() * 501), (float)(Math.random() * 501), atlasSkeleton, atlasDeath);
 
+        enemies = new Array<>();
+        for (int i = 0; i < 3; i++) {
+            enemies.add(new Enemy((float)(Math.random() * 501), (float)(Math.random() * 501), atlasSkeleton, atlasDeath));
+        }
 
         camera.position.set(playerX, playerY, 0);
-        camera.update();
     }
 
     @Override
     public void render() {
-        ScreenUtils.clear(0, 0, 0, 0); //black bg
+        input();
+        logic();
+        draw();
+        for (int i = 0; i < enemies.size; i++) {
+            System.out.println(enemies.get(i));
+        }
+    }
 
-        float delta = com.badlogic.gdx.Gdx.graphics.getDeltaTime();
+    private void input() {
+        float delta = Gdx.graphics.getDeltaTime();
 
         if (Gdx.input.isKeyPressed(Input.Keys.W)) playerY += playerSpeed * delta;
         if (Gdx.input.isKeyPressed(Input.Keys.S)) playerY -= playerSpeed * delta;
         if (Gdx.input.isKeyPressed(Input.Keys.A)) playerX -= playerSpeed * delta;
         if (Gdx.input.isKeyPressed(Input.Keys.D)) playerX += playerSpeed * delta;
+    }
+
+    private void logic() {
+        float delta = Gdx.graphics.getDeltaTime();
 
         //player does not exceed the border of the map
         playerX = MathUtils.clamp(playerX,
@@ -72,6 +86,15 @@ public class Main extends ApplicationAdapter {
             AREA_OFFSET_Y + PLAYER_MARGIN,
             AREA_OFFSET_Y + PLAYABLE_AREA_SIZE - PLAYER_MARGIN);
 
+        for (int i = 0; i < enemies.size; i++) {
+            enemies.get(i).update(delta, playerX, playerY);
+        }
+    }
+
+    private void draw() {
+        ScreenUtils.clear(Color.BLACK);
+
+        float delta = Gdx.graphics.getDeltaTime();
 
         camera.position.x += (playerX - camera.position.x) * 5f * delta;
         camera.position.y += (playerY - camera.position.y) * 5f * delta;
@@ -85,26 +108,15 @@ public class Main extends ApplicationAdapter {
         camera.update();
         batch.setProjectionMatrix(camera.combined);
 
-        if (enemy != null) {
-            enemy.update(delta, playerX, playerY);
-        }
-
         batch.begin();
         batch.draw(map, 0, 0, MAP_TEXTURE_SIZE, MAP_TEXTURE_SIZE);
         batch.draw(player, playerX - 32, playerY - 32, 64, 64);
-        if (enemy != null) {
-            enemy.render(batch);
-        }
-        batch.end();
 
-        if (enemy != null) {
-            if (!enemy.isAlive()) {
-                if (enemy.isDeathAnimationFinished()) {
-                    enemy.dispose();
-                    enemy = null;
-                }
-            }
+        for (int i = 0; i < enemies.size; i++) {
+            enemies.get(i).render(batch);
         }
+
+        batch.end();
     }
 
     @Override
@@ -117,9 +129,9 @@ public class Main extends ApplicationAdapter {
         batch.dispose();
         player.dispose();
         map.dispose();
-        map.dispose();
-        if (enemy != null) {
-            enemy.dispose();
+
+        for (int i = 0; i < enemies.size; i++) {
+            enemies.get(i).dispose();
         }
     }
 }
