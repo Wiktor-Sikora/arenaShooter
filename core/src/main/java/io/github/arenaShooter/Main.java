@@ -10,12 +10,13 @@ import com.badlogic.gdx.math.MathUtils;
 import com.badlogic.gdx.utils.ScreenUtils;
 import com.badlogic.gdx.graphics.OrthographicCamera;
 import com.badlogic.gdx.utils.viewport.FitViewport;
+import com.badlogic.gdx.utils.viewport.ScreenViewport;
 
 
 public class Main extends ApplicationAdapter {
     private SpriteBatch batch;
     private OrthographicCamera camera;
-    private FitViewport viewport;
+    private ScreenViewport viewport;
     private Texture player;
     private Texture map;
 
@@ -25,6 +26,9 @@ public class Main extends ApplicationAdapter {
     private final float MAP_TEXTURE_SIZE = 1100;
     private final float PLAYABLE_AREA_SIZE = 1000;
     private final float PLAYER_MARGIN = 28;
+
+    float WORLD_WIDTH = 1000f;
+    float WORLD_HEIGHT = 1000f;
 
     private final float AREA_OFFSET_X = (MAP_TEXTURE_SIZE - PLAYABLE_AREA_SIZE) / 2f;
     private final float AREA_OFFSET_Y = (MAP_TEXTURE_SIZE - PLAYABLE_AREA_SIZE) / 2f;
@@ -38,7 +42,8 @@ public class Main extends ApplicationAdapter {
     public void create() {
         batch = new SpriteBatch();
         camera = new OrthographicCamera();
-        viewport = new FitViewport(750, 700, camera); //camera view (zoomed)
+        viewport = new ScreenViewport(camera); //camera view
+        viewport.setUnitsPerPixel(1f);
 
         player = new Texture("dummy.png");
         map = new Texture("map.png");
@@ -76,11 +81,11 @@ public class Main extends ApplicationAdapter {
         camera.position.x += (playerX - camera.position.x) * 5f * delta;
         camera.position.y += (playerY - camera.position.y) * 5f * delta;
 
-        float halfWidth = viewport.getWorldWidth() / 2f;
-        float halfHeight = viewport.getWorldHeight() / 2f;
+        float quarterWidth = WORLD_WIDTH / 4f;
+        float quarterHeight = WORLD_HEIGHT / 4f;
 
-        camera.position.x = MathUtils.clamp(camera.position.x, halfWidth, MAP_TEXTURE_SIZE - halfWidth);
-        camera.position.y = MathUtils.clamp(camera.position.y, halfHeight, MAP_TEXTURE_SIZE - halfHeight);
+        camera.position.x = MathUtils.clamp(camera.position.x, quarterWidth, MAP_TEXTURE_SIZE - quarterWidth);
+        camera.position.y = MathUtils.clamp(camera.position.y, quarterHeight, MAP_TEXTURE_SIZE - quarterHeight);
 
         camera.update();
         batch.setProjectionMatrix(camera.combined);
