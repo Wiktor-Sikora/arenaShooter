@@ -12,7 +12,7 @@ import com.badlogic.gdx.math.Vector2;
 import java.util.ArrayList;
 import java.util.List;
 
-public class Enemy {
+public class Enemy extends Entity {
 
     //enum states
     public enum State {
@@ -22,7 +22,6 @@ public class Enemy {
         DEAD
     }
 
-    private float x, y;
     private float speed = 100f;
     private float attackRange = 150f;
     private boolean alive = true;
@@ -50,9 +49,11 @@ public class Enemy {
     private boolean deathAnimationFinished = false;
     private List<Bullet> bullets = new ArrayList<>();
 
-    public Enemy(float startX, float startY, TextureAtlas atlasEnemy, TextureAtlas atlasDeath) {
-        this.x = startX;
-        this.y = startY;
+    private Player target;
+
+    public Enemy(float startX, float startY, TextureAtlas atlasEnemy, TextureAtlas atlasDeath, Player target) {
+        position = new Vector2(startX, startY);
+        this.target = target;
 
         Array<TextureRegion> walkFrames = new Array<>();
         for (int i = 0; i < 3; i++) {
@@ -74,12 +75,10 @@ public class Enemy {
         deathAnimation = new Animation<>(0.05f, deathFrames, Animation.PlayMode.NORMAL);
 
         deathSound = Gdx.audio.newSound(Gdx.files.internal("death_sound.mp3"));
-
     }
 
-    //update state
-    public void update(float delta, float playerX, float playerY) {
-
+    @Override
+    public void update(float delta) {
         if (state == State.DEAD) {
             stateTime += delta;
             if (deathAnimation.isAnimationFinished(stateTime)) {
@@ -89,22 +88,21 @@ public class Enemy {
             return;
         }
 
-
         stateTime += delta;
         damageTimer += delta;
 
-        float dx = playerX - x;
-        float dy = playerY - y;
+        float dx = target.position.x - position.x;
+        float dy = target.position.y - position.y;
         float dist = (float) Math.sqrt(dx * dx + dy * dy);
 
-        flipped = (playerX < x);
+        flipped = (target.position.x < position.x);
 
         switch (state) {
             case WALK:
                 //go to player
                 if (dist > attackRange) {
-                    x += (dx / dist) * speed * delta;
-                    y += (dy / dist) * speed * delta;
+                    position.x += (dx / dist) * speed * delta;
+                    position.y += (dy / dist) * speed * delta;
                 } else {
                     state = State.ATTACK;
                     stateTime = 0f;
@@ -115,7 +113,7 @@ public class Enemy {
             case ATTACK:
                 //onetime animation
                 if (!hasShotThisCycle && stateTime >= attackAnimation.getFrameDuration()) {
-                    shoot(playerX, playerY);
+                    shoot(target.position.x, target.position.y);
                     attackCount++;
                     hasShotThisCycle = true;
                 }
@@ -150,14 +148,14 @@ public class Enemy {
                 break;
         }
 
-        checkPlayerCollision(playerX, playerY);
+        checkPlayerCollision();
 
-        //bullets update
+        // bullets update
         for (int i = bullets.size() - 1; i >= 0; i--) {
             Bullet bullet = bullets.get(i);
             bullet.update(delta);
 
-            //delete if are out of map
+            // delete if are out of map
             if (bullet.isExpired()) {
                 bullets.remove(i);
             }
@@ -165,10 +163,11 @@ public class Enemy {
 
     }
 
-    private void checkPlayerCollision(float playerX, float playerY) {
+    // fix this method to avoid creating new objects
+    private void checkPlayerCollision() {
         //collision rectangle for enemy and player
-        Rectangle enemyRect = new Rectangle(x, y, 64, 64);
-        Rectangle playerRect = new Rectangle(playerX - 32, playerY - 32, 64, 64);
+        Rectangle enemyRect = new Rectangle(position.x, position.y, 64, 64);
+        Rectangle playerRect = new Rectangle(target.position.x - 32, target.position.y - 32, 64, 64);
 
         if (enemyRect.overlaps(playerRect) && damageTimer >= damageCooldown) {
             takeDamage(DAMAGE_ON_CONTACT);
@@ -190,14 +189,14 @@ public class Enemy {
     //shoot
     private void shoot(float targetX, float targetY) {
         //shoot direction
-        Vector2 direction = new Vector2(targetX - (x + 32), targetY - (y + 32)).nor();
+        Vector2 direction = new Vector2(targetX - (position.x + 32), targetY - (position.y + 32)).nor();
 
         //create new bullet
-        Bullet bullet = new Bullet(x + 32, y + 32, direction);
+        Bullet bullet = new Bullet(position.x + 32, position.y + 32, direction);
         bullets.add(bullet);
     }
 
-    //drawing
+    @Override
     public void render(SpriteBatch batch) {
         if (!alive) return;
 
@@ -214,7 +213,7 @@ public class Enemy {
                 if (deathFrame != null) {
                     TextureRegion toDraw = new TextureRegion(deathFrame);
                     if (flipped) toDraw.flip(true, false);
-                    batch.draw(toDraw, x, y, 72, 72);
+                    batch.draw(toDraw, position.x, position.y, 72, 72);
                 }
                 return;
             case IDLE:
@@ -223,13 +222,13 @@ public class Enemy {
                 break;
         }
 
-        //create copy to flip
+        // create a copy to flip
         TextureRegion frameToDraw = new TextureRegion(currentFrame);
         if (flipped) {
             frameToDraw.flip(true, false);
         }
 
-        batch.draw(frameToDraw, x, y, 64, 64);
+        batch.draw(frameToDraw, position.x, position.y, 64, 64);
 
         //draw all bullets
         for (Bullet bullet : bullets) {
@@ -237,7 +236,8 @@ public class Enemy {
         }
     }
 
-    //clear bullets
+
+    @Override
     public void dispose() {
         for (Bullet bullet : bullets) {
             bullet.dispose();
@@ -260,8 +260,6 @@ public class Enemy {
         return stateTime > deathAnimation.getAnimationDuration();
     }
 
-    public float getX() { return x; }
-    public float getY() { return y; }
     public boolean isAlive() { return alive; }
 }
 
