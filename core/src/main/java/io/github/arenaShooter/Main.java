@@ -18,12 +18,9 @@ public class Main extends ApplicationAdapter {
     private SpriteBatch batch;
     private OrthographicCamera camera;
     private ScreenViewport viewport;
-    private Texture player;
     private Texture map;
 
-    private float playerX = 500;
-    private float playerY = 500;
-    private float playerSpeed = 300;
+    private Player player;
     private final float MAP_TEXTURE_SIZE = 1500;
     private final float PLAYABLE_AREA_SIZE = 1400;
     private final float PLAYER_MARGIN = 28;
@@ -46,18 +43,19 @@ public class Main extends ApplicationAdapter {
         viewport = new ScreenViewport(camera); //camera view
         viewport.setUnitsPerPixel(1f);
 
-        player = new Texture("dummy.png");
         map = new Texture("map.png");
 
         atlasSkeleton = new TextureAtlas(Gdx.files.internal("skeleton.atlas"));
         atlasDeath = new TextureAtlas(Gdx.files.internal("death.atlas"));
+
+        player = new Player(500f, 500f, new Texture("dummy.png"));
 
         enemies = new Array<>();
         for (int i = 0; i < 3; i++) {
             enemies.add(new Enemy((float)(Math.random() * 501), (float)(Math.random() * 501), atlasSkeleton, atlasDeath));
         }
 
-        camera.position.set(playerX, playerY, 0);
+        camera.position.set(player.x, player.y, 0);
     }
 
     @Override
@@ -70,20 +68,20 @@ public class Main extends ApplicationAdapter {
     private void input() {
         float delta = Gdx.graphics.getDeltaTime();
 
-        if (Gdx.input.isKeyPressed(Input.Keys.W)) playerY += playerSpeed * delta;
-        if (Gdx.input.isKeyPressed(Input.Keys.S)) playerY -= playerSpeed * delta;
-        if (Gdx.input.isKeyPressed(Input.Keys.A)) playerX -= playerSpeed * delta;
-        if (Gdx.input.isKeyPressed(Input.Keys.D)) playerX += playerSpeed * delta;
+        if (Gdx.input.isKeyPressed(Input.Keys.W)) player.y += player.speed * delta;
+        if (Gdx.input.isKeyPressed(Input.Keys.S)) player.y -= player.speed * delta;
+        if (Gdx.input.isKeyPressed(Input.Keys.A)) player.x -= player.speed * delta;
+        if (Gdx.input.isKeyPressed(Input.Keys.D)) player.x += player.speed * delta;
     }
 
     private void logic() {
         float delta = Gdx.graphics.getDeltaTime();
 
         //player does not exceed the border of the map
-        playerX = MathUtils.clamp(playerX,
+        player.x = MathUtils.clamp(player.x,
             AREA_OFFSET_X + PLAYER_MARGIN,
             AREA_OFFSET_X + PLAYABLE_AREA_SIZE - PLAYER_MARGIN);
-        playerY = MathUtils.clamp(playerY,
+        player.y = MathUtils.clamp(player.y,
             AREA_OFFSET_Y + PLAYER_MARGIN,
             AREA_OFFSET_Y + PLAYABLE_AREA_SIZE - PLAYER_MARGIN);
 
@@ -92,7 +90,7 @@ public class Main extends ApplicationAdapter {
                 enemies.get(i).dispose();
                 enemies.removeIndex(i);
             } else {
-                enemies.get(i).update(delta, playerX, playerY);
+                enemies.get(i).update(delta, player.x, player.y);
             }
         }
     }
@@ -102,8 +100,8 @@ public class Main extends ApplicationAdapter {
 
         float delta = Gdx.graphics.getDeltaTime();
 
-        camera.position.x += (playerX - camera.position.x) * 5f * delta;
-        camera.position.y += (playerY - camera.position.y) * 5f * delta;
+        camera.position.x += (player.x - camera.position.x) * 5f * delta;
+        camera.position.y += (player.y - camera.position.y) * 5f * delta;
 
         float quarterWidth = WORLD_WIDTH / 4f;
         float quarterHeight = WORLD_HEIGHT / 4f;
@@ -116,7 +114,7 @@ public class Main extends ApplicationAdapter {
 
         batch.begin();
         batch.draw(map, 0, 0, MAP_TEXTURE_SIZE, MAP_TEXTURE_SIZE);
-        batch.draw(player, playerX - 32, playerY - 32, 64, 64);
+        batch.draw(player.texture, player.x - 32, player.y - 32, 64, 64);
 
         for (int i = 0; i < enemies.size; i++) {
             enemies.get(i).render(batch);
@@ -136,8 +134,8 @@ public class Main extends ApplicationAdapter {
         player.dispose();
         map.dispose();
 
-        for (int i = 0; i < enemies.size; i++) {
-            enemies.get(i).dispose();
+        for (Enemy enemy: enemies) {
+            enemy.dispose();
         }
     }
 }
