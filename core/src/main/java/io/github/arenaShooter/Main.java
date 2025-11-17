@@ -2,7 +2,6 @@ package io.github.arenaShooter;
 
 import com.badlogic.gdx.ApplicationAdapter;
 import com.badlogic.gdx.Gdx;
-import com.badlogic.gdx.Input;
 import com.badlogic.gdx.utils.Array;
 import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.Texture;
@@ -11,8 +10,8 @@ import com.badlogic.gdx.graphics.g2d.TextureAtlas;
 import com.badlogic.gdx.math.MathUtils;
 import com.badlogic.gdx.utils.ScreenUtils;
 import com.badlogic.gdx.graphics.OrthographicCamera;
-import com.badlogic.gdx.utils.viewport.FitViewport;
 import com.badlogic.gdx.utils.viewport.ScreenViewport;
+import io.github.arenaShooter.enemies.Enemy;
 
 public class Main extends ApplicationAdapter {
     private SpriteBatch batch;
@@ -23,12 +22,11 @@ public class Main extends ApplicationAdapter {
     private Player player;
     private final float MAP_TEXTURE_SIZE = 1500;
     private final float PLAYABLE_AREA_SIZE = 1400;
+    private final float AREA_OFFSET = (MAP_TEXTURE_SIZE - PLAYABLE_AREA_SIZE) / 2f;
     private final float PLAYER_MARGIN = 28;
 
     float WORLD_WIDTH = 1000f;
     float WORLD_HEIGHT = 1000f;
-
-    private final float AREA_OFFSET = (MAP_TEXTURE_SIZE - PLAYABLE_AREA_SIZE) / 2f;
 
     private Array<Enemy> enemies;
     private TextureAtlas atlasSkeleton;
@@ -47,14 +45,14 @@ public class Main extends ApplicationAdapter {
         atlasSkeleton = new TextureAtlas(Gdx.files.internal("skeleton.atlas"));
         atlasDeath = new TextureAtlas(Gdx.files.internal("death.atlas"));
 
-        player = new Player(500f, 500f, new Texture("dummy.png"), PLAYABLE_AREA_SIZE, AREA_OFFSET);
+        player = new Player(500f, 500f, new Texture("dummy.png"), AREA_OFFSET, PLAYABLE_AREA_SIZE);
 
         enemies = new Array<>();
         for (int i = 0; i < 3; i++) {
             enemies.add(new Enemy((float)(Math.random() * 501), (float)(Math.random() * 501), atlasSkeleton, atlasDeath, player));
         }
 
-        camera.position.set(player.getMiddlePosition().x, player.getMiddlePosition().y, 0);
+        camera.position.set(player.position.x, player.position.y, 0);
     }
 
     @Override

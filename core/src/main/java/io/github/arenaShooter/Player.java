@@ -16,10 +16,10 @@ public class Player extends Entity {
 
     public Player(float startX, float startY, Texture texture, float areaOffset, float areaSize) {
         this.position = new Vector2(startX, startY);
-        this.speed = 50f;
+        this.speed = 250f;
         this.texture = texture;
-        this.width = texture.getWidth();
-        this.height = texture.getWidth();
+        this.width = 64;
+        this.height = 64;
 
         this.areaOffset = areaOffset;
         this.areaSize = areaSize;
@@ -27,7 +27,7 @@ public class Player extends Entity {
 
     @Override
     public void render(SpriteBatch batch) {
-        batch.draw(texture, position.x - (width/2), position.y - (height / 2), width, height);
+        batch.draw(texture, position.x, position.y, width, height);
     }
 
     @Override

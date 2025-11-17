@@ -3,7 +3,7 @@ package io.github.arenaShooter;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.math.Vector2;
 
-abstract class Entity {
+public abstract class Entity {
     protected Vector2 position;
     protected float width;
     protected float height;

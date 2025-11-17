@@ -1,4 +1,4 @@
-package io.github.arenaShooter;
+package io.github.arenaShooter.enemies;
 
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.audio.Sound;
@@ -9,11 +9,14 @@ import com.badlogic.gdx.graphics.g2d.TextureRegion;
 import com.badlogic.gdx.math.Rectangle;
 import com.badlogic.gdx.utils.Array;
 import com.badlogic.gdx.math.Vector2;
+import io.github.arenaShooter.Bullet;
+import io.github.arenaShooter.Entity;
+import io.github.arenaShooter.Player;
+
 import java.util.ArrayList;
 import java.util.List;
 
 public class Enemy extends Entity {
-
     //enum states
     public enum State {
         WALK,
@@ -52,7 +55,9 @@ public class Enemy extends Entity {
     private Player target;
 
     public Enemy(float startX, float startY, TextureAtlas atlasEnemy, TextureAtlas atlasDeath, Player target) {
-        position = new Vector2(startX, startY);
+        this.position = new Vector2(startX, startY);
+        this.width = 64;
+        this.height = 64;
         this.target = target;
 
         Array<TextureRegion> walkFrames = new Array<>();
@@ -91,11 +96,11 @@ public class Enemy extends Entity {
         stateTime += delta;
         damageTimer += delta;
 
-        float dx = target.position.x - position.x;
-        float dy = target.position.y - position.y;
+        float dx = target.getPosition().x - position.x;
+        float dy = target.getPosition().y - position.y;
         float dist = (float) Math.sqrt(dx * dx + dy * dy);
 
-        flipped = (target.position.x < position.x);
+        flipped = (target.getPosition().x < position.x);
 
         switch (state) {
             case WALK:
@@ -113,7 +118,7 @@ public class Enemy extends Entity {
             case ATTACK:
                 //onetime animation
                 if (!hasShotThisCycle && stateTime >= attackAnimation.getFrameDuration()) {
-                    shoot(target.position.x, target.position.y);
+                    shoot(target.getMiddlePosition().x, target.getMiddlePosition().y);
                     attackCount++;
                     hasShotThisCycle = true;
                 }
@@ -167,7 +172,7 @@ public class Enemy extends Entity {
     private void checkPlayerCollision() {
         //collision rectangle for enemy and player
         Rectangle enemyRect = new Rectangle(position.x, position.y, 64, 64);
-        Rectangle playerRect = new Rectangle(target.position.x - 32, target.position.y - 32, 64, 64);
+        Rectangle playerRect = new Rectangle(target.getMiddlePosition().x, target.getMiddlePosition().y, 64, 64);
 
         if (enemyRect.overlaps(playerRect) && damageTimer >= damageCooldown) {
             takeDamage(DAMAGE_ON_CONTACT);
@@ -189,10 +194,10 @@ public class Enemy extends Entity {
     //shoot
     private void shoot(float targetX, float targetY) {
         //shoot direction
-        Vector2 direction = new Vector2(targetX - (position.x + 32), targetY - (position.y + 32)).nor();
+        Vector2 direction = new Vector2(targetX - getMiddlePosition().x, targetY - getMiddlePosition().y).nor();
 
         //create new bullet
-        Bullet bullet = new Bullet(position.x + 32, position.y + 32, direction);
+        Bullet bullet = new Bullet(getMiddlePosition().x, getMiddlePosition().y, direction);
         bullets.add(bullet);
     }
 
