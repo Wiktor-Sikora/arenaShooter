@@ -2,20 +2,21 @@ package io.github.arenaShooter;
 
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.math.Vector2;
+import com.badlogic.gdx.math.Rectangle;
 
 public abstract class Entity {
-    protected Vector2 position;
-    protected float width;
-    protected float height;
+    public Rectangle hitbox;
     protected float health;
+    protected float speed;
+    protected float rateOfFire;
+    protected float range;
+    protected boolean flipped = false;
+    protected Main game;
 
     public abstract void render(SpriteBatch batch);
     public abstract void update(float delta);
     public abstract void dispose();
-    public Vector2 getPosition() { return position; }
-    public Vector2 getMiddlePosition() { return new Vector2(position.x + width/2, position.y + height/2); }
-    public float getHealth() { return width; }
-    public float getWidth() { return width; }
-    public float getHeight() { return height; }
 
+    public float getCenterX() { return hitbox.x + hitbox.width / 2;}
+    public float getCenterY() { return hitbox.y + hitbox.height / 2;}
 }

@@ -2,6 +2,7 @@ package io.github.arenaShooter;
 
 import com.badlogic.gdx.ApplicationAdapter;
 import com.badlogic.gdx.Gdx;
+import com.badlogic.gdx.math.Vector2;
 import com.badlogic.gdx.utils.Array;
 import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.Texture;
@@ -12,6 +13,7 @@ import com.badlogic.gdx.utils.ScreenUtils;
 import com.badlogic.gdx.graphics.OrthographicCamera;
 import com.badlogic.gdx.utils.viewport.ScreenViewport;
 import io.github.arenaShooter.enemies.Enemy;
+import io.github.arenaShooter.enemies.Skeleton;
 
 public class Main extends ApplicationAdapter {
     private SpriteBatch batch;
@@ -19,19 +21,16 @@ public class Main extends ApplicationAdapter {
     private ScreenViewport viewport;
     private Texture map;
 
-    private Player player;
     private final float MAP_TEXTURE_SIZE = 1500;
-    private final float PLAYABLE_AREA_SIZE = 1400;
-    private final float AREA_OFFSET = (MAP_TEXTURE_SIZE - PLAYABLE_AREA_SIZE) / 2f;
-    private final float PLAYER_MARGIN = 28;
+    public final float PLAYABLE_AREA_SIZE = 1400;
+    public final float AREA_OFFSET = (MAP_TEXTURE_SIZE - PLAYABLE_AREA_SIZE) / 2f;
 
     float WORLD_WIDTH = 1000f;
     float WORLD_HEIGHT = 1000f;
 
-    private Array<Enemy> enemies;
-    private TextureAtlas atlasSkeleton;
-    private TextureAtlas atlasDeath;
-
+    public Player player;
+    public Array<Enemy> enemies;
+    public Array<Bullet> bullets;
 
     @Override
     public void create() {
@@ -42,17 +41,16 @@ public class Main extends ApplicationAdapter {
 
         map = new Texture("map.png");
 
-        atlasSkeleton = new TextureAtlas(Gdx.files.internal("skeleton.atlas"));
-        atlasDeath = new TextureAtlas(Gdx.files.internal("death.atlas"));
-
-        player = new Player(500f, 500f, new Texture("dummy.png"), AREA_OFFSET, PLAYABLE_AREA_SIZE);
+        player = new Player(500f, 500f, new Texture("dummy.png"), this);
 
         enemies = new Array<>();
         for (int i = 0; i < 3; i++) {
-            enemies.add(new Enemy((float)(Math.random() * 501), (float)(Math.random() * 501), atlasSkeleton, atlasDeath, player));
+            enemies.add(new Skeleton((float)(Math.random() * 501), (float)(Math.random() * 501), this));
         }
 
-        camera.position.set(player.position.x, player.position.y, 0);
+        bullets = new Array<>();
+
+        camera.position.set(player.getCenterX(), player.getCenterY(), 0);
     }
 
     @Override
@@ -74,11 +72,19 @@ public class Main extends ApplicationAdapter {
         player.update(delta);
 
         for (int i = 0; i < enemies.size; i++) {
-            if (enemies.get(i).isDeathAnimationFinished()) {
+            if (enemies.get(i).isDisposable()) {
                 enemies.get(i).dispose();
                 enemies.removeIndex(i);
             } else {
                 enemies.get(i).update(delta);
+            }
+        }
+
+        for (int i = 0; i < bullets.size; i++) {
+            if (bullets.get(i).isExpired()) {
+                bullets.removeIndex(i);
+            } else {
+                bullets.get(i).update(delta);
             }
         }
     }
@@ -88,8 +94,8 @@ public class Main extends ApplicationAdapter {
 
         float delta = Gdx.graphics.getDeltaTime();
 
-        camera.position.x += (player.position.x - camera.position.x) * 5f * delta;
-        camera.position.y += (player.position.y - camera.position.y) * 5f * delta;
+        camera.position.x += (player.getCenterX() - camera.position.x) * 5f * delta;
+        camera.position.y += (player.getCenterY() - camera.position.y) * 5f * delta;
 
         float quarterWidth = WORLD_WIDTH / 4f;
         float quarterHeight = WORLD_HEIGHT / 4f;
@@ -109,6 +115,10 @@ public class Main extends ApplicationAdapter {
             enemies.get(i).render(batch);
         }
 
+        for (int i = 0; i < bullets.size; i++) {
+            bullets.get(i).render(batch);
+        }
+
         batch.end();
     }
 
@@ -126,5 +136,9 @@ public class Main extends ApplicationAdapter {
         for (Enemy enemy: enemies) {
             enemy.dispose();
         }
+    }
+
+    public void addBullet(Bullet bullet) {
+        bullets.add(bullet);
     }
 }
