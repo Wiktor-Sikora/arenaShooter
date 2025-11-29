@@ -2,24 +2,25 @@ package io.github.arenaShooter;
 
 import com.badlogic.gdx.ApplicationAdapter;
 import com.badlogic.gdx.Gdx;
-import com.badlogic.gdx.math.Vector2;
+import com.badlogic.gdx.scenes.scene2d.Stage;
 import com.badlogic.gdx.utils.Array;
 import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
-import com.badlogic.gdx.graphics.g2d.TextureAtlas;
 import com.badlogic.gdx.math.MathUtils;
 import com.badlogic.gdx.utils.ScreenUtils;
 import com.badlogic.gdx.graphics.OrthographicCamera;
 import com.badlogic.gdx.utils.viewport.ScreenViewport;
 import io.github.arenaShooter.enemies.Enemy;
 import io.github.arenaShooter.enemies.Skeleton;
+import io.github.arenaShooter.ui.playerHud;
 
 public class Main extends ApplicationAdapter {
     private SpriteBatch batch;
     private OrthographicCamera camera;
-    private ScreenViewport viewport;
+    public ScreenViewport viewport;
     private Texture map;
+    public Stage stage;
 
     private final float MAP_TEXTURE_SIZE = 1500;
     public final float PLAYABLE_AREA_SIZE = 1400;
@@ -29,6 +30,7 @@ public class Main extends ApplicationAdapter {
     float WORLD_HEIGHT = 1000f;
 
     public Player player;
+    public playerHud playerHud;
     public Array<Enemy> enemies;
     public Array<Bullet> bullets;
 
@@ -38,10 +40,14 @@ public class Main extends ApplicationAdapter {
         camera = new OrthographicCamera();
         viewport = new ScreenViewport(camera); //camera view
         viewport.setUnitsPerPixel(1f);
+        stage = new Stage(viewport);
+        Gdx.input.setInputProcessor(stage);
 
         map = new Texture("map.png");
 
         player = new Player(500f, 500f, new Texture("dummy.png"), this);
+
+        playerHud = new playerHud(this);
 
         enemies = new Array<>();
         for (int i = 0; i < 3; i++) {
@@ -93,6 +99,7 @@ public class Main extends ApplicationAdapter {
         ScreenUtils.clear(Color.BLACK);
 
         float delta = Gdx.graphics.getDeltaTime();
+        stage.act(Gdx.graphics.getDeltaTime());
 
         camera.position.x += (player.getCenterX() - camera.position.x) * 5f * delta;
         camera.position.y += (player.getCenterY() - camera.position.y) * 5f * delta;
@@ -120,11 +127,16 @@ public class Main extends ApplicationAdapter {
         }
 
         batch.end();
+
+
+        playerHud.render();
+        stage.draw();
     }
 
     @Override
     public void resize(int width, int height) {
         viewport.update(width, height, true);
+        stage.getViewport().update(width, height, true);
     }
 
     @Override
@@ -132,6 +144,7 @@ public class Main extends ApplicationAdapter {
         batch.dispose();
         player.dispose();
         map.dispose();
+        stage.dispose();
 
         for (Enemy enemy: enemies) {
             enemy.dispose();

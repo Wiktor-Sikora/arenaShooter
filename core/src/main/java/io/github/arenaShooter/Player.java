@@ -6,7 +6,8 @@ import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.math.MathUtils;
 import com.badlogic.gdx.math.Rectangle;
-import com.badlogic.gdx.math.Vector2;
+import io.github.arenaShooter.ui.HealthBar;
+
 
 public class Player extends Entity {
     public float speed;
@@ -15,13 +16,21 @@ public class Player extends Entity {
 
     public Player(float startX, float startY, Texture texture, Main game) {
         this.hitbox = new Rectangle(startX, startY, 64, 64);
+
+        this.maxHealth = 100;
+        this.health = 100;
+
         this.speed = 250f;
         this.texture = texture;
         this.game = game;
+
+        this.healthBar = new HealthBar(game, maxHealth, (int)hitbox.width);
     }
 
     @Override
     public void render(SpriteBatch batch) {
+        super.render(batch);
+
         batch.draw(texture, hitbox.getX(), hitbox.getY(), hitbox.width, hitbox.height);
     }
 
@@ -40,8 +49,15 @@ public class Player extends Entity {
     }
 
     public void dispose() {
+        super.dispose();
+
         if (texture != null) {
             texture.dispose();
         }
+    }
+
+    @Override
+    public void kill() {
+
     }
 }
