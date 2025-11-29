@@ -14,7 +14,9 @@ import com.badlogic.gdx.utils.Array;
 import io.github.arenaShooter.Bullet;
 import io.github.arenaShooter.Main;
 import io.github.arenaShooter.Player;
+import io.github.arenaShooter.ui.HealthBar;
 
+import java.io.Console;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -57,7 +59,9 @@ public class Skeleton extends Enemy {
         for (int i = 0; i < 47; i++) {
             deathFrames.add(deathAnimationAtlas.findRegion("death_animation" + i));
         }
-        deathAnimation = new Animation<>(0.15f, deathFrames, Animation.PlayMode.NORMAL);
+        deathAnimation = new Animation<>(0.05f, deathFrames, Animation.PlayMode.NORMAL);
+
+        this.healthBar = new HealthBar(game, maxHealth, (int)hitbox.width);
     }
 
     @Override
@@ -129,7 +133,7 @@ public class Skeleton extends Enemy {
 
     @Override
     public void render(SpriteBatch batch) {
-        if (!isAlive()) return;
+        super.render(batch);
 
         TextureRegion currentFrame;
 
@@ -144,11 +148,11 @@ public class Skeleton extends Enemy {
                 TextureRegion deathFrame = deathAnimation.getKeyFrame(stateTime, false);
                 if (deathFrame != null) {
                     TextureRegion toDraw = new TextureRegion(deathFrame);
-                    if (flipped) toDraw.flip(true, false);
                     batch.draw(toDraw, hitbox.getX(), hitbox.getY(), hitbox.width, hitbox.height);
                 }
                 return;
             case IDLE:
+
             default:
                 currentFrame = walkAnimation.getKeyFrame(0, false);
                 break;
@@ -165,6 +169,8 @@ public class Skeleton extends Enemy {
 
     @Override
     public void dispose() {
+        super.dispose();
+
         if (deathSound != null) {
             deathSound.dispose();
         }
@@ -172,8 +178,6 @@ public class Skeleton extends Enemy {
 
     @Override
     public void kill() {
-        if (!isAlive()) return;
-
         state = State.DEAD;
         deathSound.play();
         stateTime = 0f;

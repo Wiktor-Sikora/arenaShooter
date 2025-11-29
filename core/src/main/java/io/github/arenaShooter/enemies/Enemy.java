@@ -11,10 +11,7 @@ import com.badlogic.gdx.utils.Array;
 import com.badlogic.gdx.math.Vector2;
 import io.github.arenaShooter.Bullet;
 import io.github.arenaShooter.Entity;
-import io.github.arenaShooter.Player;
 
-import java.util.ArrayList;
-import java.util.List;
 
 public abstract class Enemy extends Entity {
     public enum State {
@@ -32,26 +29,23 @@ public abstract class Enemy extends Entity {
     protected Sound deathSound;
     protected float stateTime = 0f;
 
+    // stats
     protected float projectileRange;
     protected float projectileSpeed;
+
+    @Override
+    public void render(SpriteBatch batch) {
+        super.render(batch);
+    }
+
+    @Override
+    public void dispose() {
+        super.dispose();
+    }
 
     public boolean checkPlayerCollision() {
         return this.hitbox.overlaps(game.player.hitbox);
     }
-
-    public void takeDamage(int amount) {
-        if (!isAlive()) return;
-
-        health -= amount;
-        System.out.println("Enemy HP: " + health);
-
-        if (health <= 0) {
-            health = 0;
-            kill();
-        }
-    }
-
-    public abstract void kill();
     public boolean isDeathAnimationFinished() {
         return stateTime > deathAnimation.getAnimationDuration();
     }
