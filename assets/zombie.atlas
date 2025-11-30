@@ -1,0 +1,16 @@
+zombie.png
+size: 220, 44
+format: RGBA8888
+filter: Linear, Linear
+repeat: none
+pma: false
+zombie_walk_0
+  bounds: 0, 0, 44, 44
+zombie_walk_1
+  bounds: 44, 0, 44, 44
+zombie_walk_2
+  bounds: 88, 0, 44, 44
+zombie_attack_0
+  bounds: 132, 0, 44, 44
+zombie_attack_1
+  bounds: 176, 0, 44, 44

@@ -1,13 +1,20 @@
 package io.github.arenaShooter;
 
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
-import com.badlogic.gdx.math.Vector2;
 import com.badlogic.gdx.math.Rectangle;
+import com.badlogic.gdx.utils.Array;
+import io.github.arenaShooter.enemies.Enemy;
 import io.github.arenaShooter.ui.HealthBar;
 
 
 public abstract class Entity {
     public Rectangle hitbox;
+    protected float hitboxWidth;
+    protected float hitboxHeight;
+
+    protected float textureWidth;
+    protected float textureHeight;
+
     protected boolean flipped = false;
     protected Main game;
     protected HealthBar healthBar;
@@ -18,6 +25,7 @@ public abstract class Entity {
     public float speed;
     public float maxHealth;
     public float health;
+
 
     public void takeDamage(int amount) {
         if (health <= 0) return;
@@ -31,8 +39,29 @@ public abstract class Entity {
         }
     }
 
+    public boolean isCollidingWith(Entity other) {
+        if (other == this) return false;
+        return this.hitbox.overlaps(other.hitbox);
+    }
+
+    protected boolean canMove(float newX, float newY, Array<Enemy> enemies) {
+        Rectangle futureHitbox = new Rectangle(newX, newY, hitboxWidth, hitboxHeight);
+        for(Enemy e : enemies) {
+            if(e == this) continue;
+            if(futureHitbox.overlaps(e.hitbox)) return false;
+        }
+        return true;
+    }
+
+    protected float getHealthBarOffsetY() {
+        return 0f;
+    }
+
     public void render(SpriteBatch batch) {
-        healthBar.render(health, hitbox.x, hitbox.y);
+        float healthBarX = hitbox.x + (hitboxWidth - textureWidth) / 2f;
+        float healthBarY = hitbox.y - getHealthBarOffsetY();
+
+        healthBar.render(health, healthBarX, healthBarY);
     };
 
     public abstract void update(float delta);
@@ -42,6 +71,6 @@ public abstract class Entity {
 
     public abstract void kill();
 
-    public float getCenterX() { return hitbox.x + hitbox.width / 2;}
-    public float getCenterY() { return hitbox.y + hitbox.height / 2;}
+    public float getCenterX() { return hitbox.x + hitboxWidth / 2; }
+    public float getCenterY() { return hitbox.y + hitboxHeight / 2; }
 }

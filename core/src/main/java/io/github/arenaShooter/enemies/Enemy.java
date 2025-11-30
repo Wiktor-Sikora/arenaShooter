@@ -12,6 +12,8 @@ import com.badlogic.gdx.math.Vector2;
 import io.github.arenaShooter.Bullet;
 import io.github.arenaShooter.Entity;
 
+import java.util.List;
+
 
 public abstract class Enemy extends Entity {
     public enum State {

@@ -13,6 +13,7 @@ import com.badlogic.gdx.graphics.OrthographicCamera;
 import com.badlogic.gdx.utils.viewport.ScreenViewport;
 import io.github.arenaShooter.enemies.Enemy;
 import io.github.arenaShooter.enemies.Skeleton;
+import io.github.arenaShooter.enemies.Zombie;
 import io.github.arenaShooter.ui.playerHud;
 
 public class Main extends ApplicationAdapter {
@@ -26,8 +27,8 @@ public class Main extends ApplicationAdapter {
     public final float PLAYABLE_AREA_SIZE = 1400;
     public final float AREA_OFFSET = (MAP_TEXTURE_SIZE - PLAYABLE_AREA_SIZE) / 2f;
 
-    float WORLD_WIDTH = 1000f;
-    float WORLD_HEIGHT = 1000f;
+    float WORLD_WIDTH = 1500f;
+    float WORLD_HEIGHT = 1500f;
 
     public Player player;
     public playerHud playerHud;
@@ -52,6 +53,7 @@ public class Main extends ApplicationAdapter {
         enemies = new Array<>();
         for (int i = 0; i < 3; i++) {
             enemies.add(new Skeleton((float)(Math.random() * 501), (float)(Math.random() * 501), this));
+            enemies.add(new Zombie((float)(Math.random() * 501), (float)(Math.random() * 501), this));
         }
 
         bullets = new Array<>();

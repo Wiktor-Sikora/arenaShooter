@@ -15,7 +15,11 @@ public class Player extends Entity {
     public Texture texture;
 
     public Player(float startX, float startY, Texture texture, Main game) {
-        this.hitbox = new Rectangle(startX, startY, 64, 64);
+        this.textureHeight = textureWidth = 64;
+        this.hitboxHeight = textureHeight;
+        this.hitboxWidth = textureWidth / 2;
+        this.hitbox = new Rectangle(startX, startY, hitboxWidth, hitboxHeight);
+
 
         this.maxHealth = 100;
         this.health = 100;
@@ -24,14 +28,16 @@ public class Player extends Entity {
         this.texture = texture;
         this.game = game;
 
-        this.healthBar = new HealthBar(game, maxHealth, (int)hitbox.width);
+        this.healthBar = new HealthBar(game, maxHealth, (int)textureWidth);
     }
-
     @Override
     public void render(SpriteBatch batch) {
         super.render(batch);
 
-        batch.draw(texture, hitbox.getX(), hitbox.getY(), hitbox.width, hitbox.height);
+        float drawX = hitbox.x + (hitboxWidth - textureWidth) / 2f;
+        float drawY = hitbox.y + (hitboxHeight - textureHeight) / 2f;
+
+        batch.draw(texture, drawX, drawY, textureWidth, textureHeight);
     }
 
     @Override

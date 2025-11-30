@@ -2,8 +2,6 @@ package io.github.arenaShooter.enemies;
 
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.audio.Sound;
-import com.badlogic.gdx.files.FileHandle;
-import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.graphics.g2d.Animation;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.graphics.g2d.TextureAtlas;
@@ -11,52 +9,43 @@ import com.badlogic.gdx.graphics.g2d.TextureRegion;
 import com.badlogic.gdx.math.Rectangle;
 import com.badlogic.gdx.math.Vector2;
 import com.badlogic.gdx.utils.Array;
-import io.github.arenaShooter.Bullet;
 import io.github.arenaShooter.Main;
-import io.github.arenaShooter.Player;
 import io.github.arenaShooter.ui.HealthBar;
 
-import java.io.Console;
-import java.util.ArrayList;
 import java.util.List;
 
-public class Skeleton extends Enemy {
-    private int attackCount = 0;
-    private float restTime = 0f;
-    private boolean hasShotThisCycle = false;
+public class Zombie extends Enemy {
 
-    private float damageTimer = 0f;
-
-    private final int DAMAGE_ON_CONTACT = 50;
-    private final float REST_DURATION = 1f;
-    private final int MAX_ATTACKS = 3;
-    private final Texture bulletTexture = new Texture("bone.png");
-    private final TextureAtlas textureAtlas = new TextureAtlas(Gdx.files.internal("skeleton.atlas"));
+    private final int DAMAGE_ON_CONTACT = 0;
+    private final TextureAtlas textureAtlas = new TextureAtlas(Gdx.files.internal("zombie.atlas"));
     private final TextureAtlas deathAnimationAtlas = new TextureAtlas(Gdx.files.internal("death.atlas"));
     private final Sound deathSound = Gdx.audio.newSound(Gdx.files.internal("death_sound.mp3"));
+    private boolean hasDealtDamageThisAttack = false;
 
-    public Skeleton(float startX, float startY, Main game) {
+    private float attackTimer = 0f;
+
+    public Zombie(float startX, float startY, Main game) {
         this.textureHeight = textureWidth = 64;
         this.hitboxHeight = 27;
         this.hitboxWidth = textureWidth / 2;
         this.hitbox = new Rectangle(startX, startY, hitboxWidth, hitboxHeight);
-        this.speed = 100f;
+        this.speed = 80f;
         this.maxHealth = this.health = 100;
-        this.range = 100f;
-        this.rateOfFire = 0.5f;
+        this.range = 16f;
+        this.rateOfFire = 1f;
         this.game = game;
 
         Array<TextureRegion> walkFrames = new Array<>();
         for (int i = 0; i < 3; i++) {
-            walkFrames.add(textureAtlas.findRegion("skeleton_walk_" + i));
+            walkFrames.add(textureAtlas.findRegion("zombie_walk_" + i));
         }
         walkAnimation = new Animation<>(0.15f, walkFrames, Animation.PlayMode.LOOP);
 
         Array<TextureRegion> attackFrames = new Array<>();
         for (int i = 0; i < 2; i++) {
-            attackFrames.add(textureAtlas.findRegion("skeleton_attack_" + i));
+            attackFrames.add(textureAtlas.findRegion("zombie_attack_" + i));
         }
-        attackAnimation = new Animation<>(0.15f, attackFrames, Animation.PlayMode.NORMAL);
+        attackAnimation = new Animation<>(0.5f, attackFrames, Animation.PlayMode.NORMAL);
 
         Array<TextureRegion> deathFrames = new Array<>();
         for (int i = 0; i < 47; i++) {
@@ -67,10 +56,21 @@ public class Skeleton extends Enemy {
         this.healthBar = new HealthBar(game, maxHealth, (int)textureWidth);
     }
 
+
+    @Override
+    protected boolean canMove(float newX, float newY, Array<Enemy> enemies) {
+        Rectangle futureHitbox = new Rectangle(newX, newY, hitboxWidth, hitboxHeight);
+        for (Enemy e : enemies) {
+            if (e == this) continue;
+            if (e instanceof Zombie && (e.state == State.ATTACK || e.state == State.IDLE)) continue;
+            if (futureHitbox.overlaps(e.hitbox)) return false;
+        }
+        return true;
+    }
+
     @Override
     public void update(float delta) {
         stateTime += delta;
-        damageTimer += delta;
 
         float dx = game.player.hitbox.getX() - hitbox.getX();
         float dy = game.player.hitbox.getY() - hitbox.getY();
@@ -81,62 +81,51 @@ public class Skeleton extends Enemy {
         switch (state) {
             case WALK:
                 //go to player
-                if(distanceToPlayer > range) {
-                    float moveX = (dx / distanceToPlayer) * speed * delta;
-                    float moveY = (dy / distanceToPlayer) * speed * delta;
+                if (distanceToPlayer > range) {
+                    Vector2 move = new Vector2(dx, dy).nor().scl(speed * delta);
 
-                    float newX = hitbox.x + moveX;
-                    float newY = hitbox.y + moveY;
+                    Vector2 avoid = new Vector2(0, 0);
+                    for (Enemy e : game.enemies) {
+                        if (e == this) continue;
 
-                    if(canMove(newX, newY, game.enemies)) {
-                        hitbox.x = newX;
-                        hitbox.y = newY;
-                    } else {
-                        float sidestep = speed * delta * 0.5f;
-                        if(canMove(hitbox.x, hitbox.y + sidestep, game.enemies)) hitbox.y += sidestep;
-                        else if(canMove(hitbox.x, hitbox.y - sidestep, game.enemies)) hitbox.y -= sidestep;
-                        else if(canMove(hitbox.x + sidestep, hitbox.y, game.enemies)) hitbox.x += sidestep;
+                        if (e instanceof Zombie && (e.state == State.ATTACK || e.state == State.IDLE)) continue;
+
+                        Vector2 diff = new Vector2(hitbox.x - e.hitbox.x, hitbox.y - e.hitbox.y);
+                        float dist = diff.len();
+                        if (dist < hitboxWidth) {
+                            avoid.add(diff.nor().scl((hitboxWidth - dist) / 2f));
+                        }
                     }
+
+                    move.add(avoid);
+
+                    hitbox.x += move.x;
+                    hitbox.y += move.y;
 
                 } else {
                     state = State.ATTACK;
                     stateTime = 0f;
-                    hasShotThisCycle = false;
                 }
                 break;
 
             case ATTACK:
-                //onetime animation
-                float attackX = hitbox.x;
-                float attackY = hitbox.y;
-                hitbox.x = attackX;
-                hitbox.y = attackY;
+                stateTime += delta;
+                attackTimer += delta;
 
-                if(!hasShotThisCycle && stateTime >= attackAnimation.getFrameDuration()) {
-                    shoot(game.player.getCenterX(), game.player.getCenterY());
-                    attackCount++;
-                    hasShotThisCycle = true;
-                }
+                int frameIndex = attackAnimation.getKeyFrameIndex(stateTime);
 
-                if(attackAnimation.isAnimationFinished(stateTime)) {
-                    if(attackCount >= MAX_ATTACKS) {
-                        state = State.IDLE;
-                        restTime = 0f;
-                        stateTime = 0f;
-                    } else {
-                        state = State.WALK;
-                        stateTime = 0f;
+                if (frameIndex == 1 && !hasDealtDamageThisAttack) {
+                    if (checkPlayerCollision()) {
+                        game.player.takeDamage(10);
                     }
+                    hasDealtDamageThisAttack = true;
                 }
-                break;
 
-            case IDLE:
-                restTime += delta;
-                if (restTime >= REST_DURATION) {
-                    attackCount = 0;
-                    restTime = 0f;
+                if (attackAnimation.isAnimationFinished(stateTime)) {
                     state = State.WALK;
                     stateTime = 0f;
+                    attackTimer = 0f;
+                    hasDealtDamageThisAttack = false;
                 }
                 break;
 
@@ -175,8 +164,6 @@ public class Skeleton extends Enemy {
                     batch.draw(toDraw, drawX, drawY, textureWidth, textureHeight);
                 }
                 return;
-            case IDLE:
-
             default:
                 currentFrame = walkAnimation.getKeyFrame(0, false);
                 break;
@@ -213,13 +200,6 @@ public class Skeleton extends Enemy {
         state = State.DEAD;
         deathSound.play();
         stateTime = 0f;
-    }
-
-    private void shoot(float targetX, float targetY) {
-        Vector2 direction = new Vector2(targetX - getCenterX(), targetY - getCenterY()).nor();
-
-        Bullet bullet = new Bullet(getCenterX(), getCenterY(), direction, bulletTexture, 100f, 720f, 3f);
-        game.bullets.add(bullet);
     }
 
 
