@@ -27,7 +27,7 @@ public abstract class Entity {
     public float health;
 
 
-    public void takeDamage(int amount) {
+    public void takeDamage(float amount) {
         if (health <= 0) return;
 
         health -= amount;

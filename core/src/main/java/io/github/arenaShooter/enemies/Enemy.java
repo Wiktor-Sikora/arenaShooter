@@ -1,18 +1,10 @@
 package io.github.arenaShooter.enemies;
 
-import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.audio.Sound;
 import com.badlogic.gdx.graphics.g2d.Animation;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
-import com.badlogic.gdx.graphics.g2d.TextureAtlas;
 import com.badlogic.gdx.graphics.g2d.TextureRegion;
-import com.badlogic.gdx.math.Rectangle;
-import com.badlogic.gdx.utils.Array;
-import com.badlogic.gdx.math.Vector2;
-import io.github.arenaShooter.Bullet;
 import io.github.arenaShooter.Entity;
-
-import java.util.List;
 
 
 public abstract class Enemy extends Entity {
@@ -34,6 +26,7 @@ public abstract class Enemy extends Entity {
     // stats
     protected float projectileRange;
     protected float projectileSpeed;
+    protected float damage;
 
     @Override
     public void render(SpriteBatch batch) {

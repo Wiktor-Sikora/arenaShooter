@@ -2,7 +2,6 @@ package io.github.arenaShooter.enemies;
 
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.audio.Sound;
-import com.badlogic.gdx.files.FileHandle;
 import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.graphics.g2d.Animation;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
@@ -11,14 +10,9 @@ import com.badlogic.gdx.graphics.g2d.TextureRegion;
 import com.badlogic.gdx.math.Rectangle;
 import com.badlogic.gdx.math.Vector2;
 import com.badlogic.gdx.utils.Array;
-import io.github.arenaShooter.Bullet;
+import io.github.arenaShooter.weapons.Bullet;
 import io.github.arenaShooter.Main;
-import io.github.arenaShooter.Player;
 import io.github.arenaShooter.ui.HealthBar;
-
-import java.io.Console;
-import java.util.ArrayList;
-import java.util.List;
 
 public class Skeleton extends Enemy {
     private int attackCount = 0;
@@ -40,9 +34,12 @@ public class Skeleton extends Enemy {
         this.hitboxHeight = 27;
         this.hitboxWidth = textureWidth / 2;
         this.hitbox = new Rectangle(startX, startY, hitboxWidth, hitboxHeight);
+        this.damage = 20f;
+        this.projectileSpeed = 100f;
+        this.projectileRange = 300f;
         this.speed = 100f;
         this.maxHealth = this.health = 100;
-        this.range = 100f;
+        this.range = 150f;
         this.rateOfFire = 0.5f;
         this.game = game;
 
@@ -218,8 +215,12 @@ public class Skeleton extends Enemy {
     private void shoot(float targetX, float targetY) {
         Vector2 direction = new Vector2(targetX - getCenterX(), targetY - getCenterY()).nor();
 
-        Bullet bullet = new Bullet(getCenterX(), getCenterY(), direction, bulletTexture, 100f, 720f, 3f);
-        game.bullets.add(bullet);
+        game.addBullet(new Bullet(this.game,
+            getCenterX(), getCenterY(), direction,
+            bulletTexture, 16, 16,
+            this.damage, this.projectileSpeed, this.projectileRange,
+            Bullet.Owner.ENEMY, 720f
+        ));
     }
 
 
