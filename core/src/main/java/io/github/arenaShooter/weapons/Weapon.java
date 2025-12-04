@@ -7,8 +7,11 @@ import com.badlogic.gdx.utils.TimeUtils;
 import io.github.arenaShooter.Main;
 
 public abstract class Weapon {
+    // texture data
     protected float textureWidth;
     protected float textureHeight;
+    protected Texture projectileTexture;
+    protected Texture weaponTexture;
 
     // stats
     public float damage;
@@ -16,8 +19,6 @@ public abstract class Weapon {
     public float rateOfFire; // bullets per second
     public float projectileSpeed;
 
-    protected Texture projectileTexture;
-    protected Texture weaponTexture;
     protected Main game;
     long timeSinceLastShot;
 

@@ -6,6 +6,7 @@ import com.badlogic.gdx.math.Rectangle;
 import com.badlogic.gdx.math.Vector2;
 import io.github.arenaShooter.Entity;
 import io.github.arenaShooter.Main;
+import io.github.arenaShooter.enemies.Enemy;
 
 public class Bullet {
     public enum Owner {
@@ -71,8 +72,8 @@ public class Bullet {
 
         // collision detection
         if (owner == Owner.PLAYER) {
-            for (Entity target: this.game.enemies) {
-                if (this.hitbox.overlaps(target.hitbox)) {
+            for (Enemy target: this.game.enemies) {
+                if (target.isAlive() && this.hitbox.overlaps(target.hitbox)) {
                     target.takeDamage(this.damage);
                     this.expired = true;
                     return;
