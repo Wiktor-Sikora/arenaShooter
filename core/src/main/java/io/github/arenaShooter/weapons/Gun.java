@@ -14,6 +14,8 @@ public class Gun extends Weapon {
         this.projectileTexture = new Texture("bullet.png");
         this.textureWidth = 27;
         this.textureHeight = 23;
+        this.projectileOffsetX = 27;
+        this.projectileOffsetY = 20;
         this.game = game;
         this.timeSinceLastShot = TimeUtils.millis();
     }

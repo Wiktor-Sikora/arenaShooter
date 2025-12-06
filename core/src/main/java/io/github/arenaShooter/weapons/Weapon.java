@@ -1,8 +1,10 @@
 package io.github.arenaShooter.weapons;
 
+import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.math.Vector2;
+import com.badlogic.gdx.math.Vector3;
 import com.badlogic.gdx.utils.TimeUtils;
 import io.github.arenaShooter.Main;
 
@@ -12,6 +14,8 @@ public abstract class Weapon {
     protected float textureHeight;
     protected Texture projectileTexture;
     protected Texture weaponTexture;
+    protected float projectileOffsetX;
+    protected float projectileOffsetY;
 
     // stats
     public float damage;
@@ -27,6 +31,8 @@ public abstract class Weapon {
 
         this.timeSinceLastShot = TimeUtils.millis();
 
+        // TODO: add bullet offset to the end of a barrel
+        // TODO: add bullet initial rotation
         game.addBullet(new Bullet(this.game,
             game.player.getCenterX(), game.player.getCenterY(),
             direction, projectileTexture, 5, 15,
@@ -36,11 +42,30 @@ public abstract class Weapon {
     }
 
     public void render(SpriteBatch batch) {
-        batch.draw(
-            weaponTexture,
-            game.player.getCenterX() - textureWidth / 2 + 30,
-            game.player.getCenterY() - textureHeight / 2,
-            textureWidth, textureHeight
+        Vector3 unprojectedCords = game.camera.unproject(new Vector3(Gdx.input.getX(), Gdx.input.getY(), 0f));
+        Vector2 direction = new Vector2(unprojectedCords.x - game.player.getCenterX(), unprojectedCords.y - game.player.getCenterY()).nor();
+
+        float rotation = direction.angleDeg();
+        boolean flipped = false;
+        float offsetX;
+        if (direction.x < 0) {
+            flipped = true;
+            rotation = rotation + 180;
+            offsetX = -30;
+        } else {
+            offsetX = 0;
+        }
+
+
+        batch.draw(weaponTexture,
+            game.player.getCenterX() + direction.x * 15 + offsetX, game.player.getCenterY() + direction.y * 30,
+            textureWidth/2, textureHeight/2,
+            textureWidth, textureHeight,
+            1f, 1f,
+            rotation,
+            0, 0,
+            weaponTexture.getWidth(), weaponTexture.getHeight(),
+            flipped, false
         );
     };
 

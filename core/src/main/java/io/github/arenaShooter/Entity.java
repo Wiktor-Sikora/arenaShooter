@@ -15,7 +15,7 @@ public abstract class Entity {
     protected float textureWidth;
     protected float textureHeight;
 
-    protected boolean flipped = false;
+    public boolean flipped = false;
     protected Main game;
     protected HealthBar healthBar;
 
@@ -48,7 +48,7 @@ public abstract class Entity {
         Rectangle futureHitbox = new Rectangle(newX, newY, hitboxWidth, hitboxHeight);
         for(Enemy e : enemies) {
             if(e == this) continue;
-            if(futureHitbox.overlaps(e.hitbox)) return false;
+            if(futureHitbox.overlaps(e.hitbox) && e.isAlive()) return false;
         }
         return true;
     }
