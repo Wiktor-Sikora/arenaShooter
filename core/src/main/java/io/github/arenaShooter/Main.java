@@ -15,10 +15,11 @@ import io.github.arenaShooter.enemies.Enemy;
 import io.github.arenaShooter.enemies.Skeleton;
 import io.github.arenaShooter.enemies.Zombie;
 import io.github.arenaShooter.ui.playerHud;
+import io.github.arenaShooter.weapons.Bullet;
 
 public class Main extends ApplicationAdapter {
     private SpriteBatch batch;
-    private OrthographicCamera camera;
+    public OrthographicCamera camera;
     public ScreenViewport viewport;
     private Texture map;
     public Stage stage;
@@ -90,6 +91,7 @@ public class Main extends ApplicationAdapter {
 
         for (int i = 0; i < bullets.size; i++) {
             if (bullets.get(i).isExpired()) {
+                bullets.get(i).dispose();
                 bullets.removeIndex(i);
             } else {
                 bullets.get(i).update(delta);
@@ -150,6 +152,10 @@ public class Main extends ApplicationAdapter {
 
         for (Enemy enemy: enemies) {
             enemy.dispose();
+        }
+
+        for (Bullet bullet: bullets) {
+            bullet.dispose();
         }
     }
 
