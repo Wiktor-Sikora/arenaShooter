@@ -47,7 +47,7 @@ public class Main extends ApplicationAdapter {
 
         map = new Texture("map.png");
 
-        player = new Player(500f, 500f, new Texture("dummy.png"), this);
+        player = new Player(500f, 500f, this);
 
         playerHud = new playerHud(this);
 
