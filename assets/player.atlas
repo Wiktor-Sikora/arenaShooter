@@ -1,5 +1,5 @@
 player.png
-size: 576, 64
+size: 768, 64
 format: RGBA8888
 filter: Linear, Linear
 repeat: none
@@ -22,3 +22,9 @@ player_side_1
   bounds: 448, 0, 64, 64
 player_side_2
   bounds: 512, 0, 64, 64
+player_side_3
+  bounds: 576, 0, 64, 64
+player_side_4
+  bounds: 640, 0, 64, 64
+player_side_5
+  bounds: 704, 0, 64, 64

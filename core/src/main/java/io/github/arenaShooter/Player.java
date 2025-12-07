@@ -51,10 +51,10 @@ public class Player extends Entity {
         this.healthBar = new HealthBar(game, maxHealth, (int)textureWidth);
 
         Array<TextureRegion> sideWalkFrames = new Array<>();
-        for (int i = 0; i < 3; i++) {
+        for (int i = 0; i < 5; i++) {
             sideWalkFrames.add(textureAtlas.findRegion("player_side_" + i));
         }
-        sideWalkAnimation = new Animation<>(0.3f, sideWalkFrames, Animation.PlayMode.LOOP);
+        sideWalkAnimation = new Animation<>(0.2f, sideWalkFrames, Animation.PlayMode.LOOP);
 
         Array<TextureRegion> frontWalkFrames = new Array<>();
         for (int i = 0; i < 3; i++) {
@@ -68,7 +68,7 @@ public class Player extends Entity {
         }
         backWalkAnimation = new Animation<>(0.3f, backWalkFrames, Animation.PlayMode.LOOP);
 
-        currentFrame = sideWalkAnimation.getKeyFrame(0, false);
+        currentFrame = sideWalkAnimation.getKeyFrame(3, false);
     }
 
 
@@ -77,17 +77,36 @@ public class Player extends Entity {
     public void render(SpriteBatch batch) {
         super.render(batch);
 
+        Vector3 mousePos = game.camera.unproject(new Vector3(Gdx.input.getX(), Gdx.input.getY(), 0f));
+        Vector2 dir = new Vector2(mousePos.x - getCenterX(), mousePos.y - getCenterY()).nor();
+
+        float rotation;
+        boolean flipped = false;
+
+        if (Math.abs(dir.x) > Math.abs(dir.y)) {
+            if (dir.x > 0) rotation = 0;
+            else { rotation = 0; flipped = true; }
+        } else {
+            if (dir.y > 0) rotation = 90;
+            else rotation = -90;
+        }
+
+        if (rotation == 90) {
+            weapon.render(batch);
+        }
+
         float drawX = hitbox.x + (hitboxWidth - textureWidth) / 2f;
         float drawY = hitbox.y + (hitboxHeight - textureHeight) / 2f;
 
-
         if (facingLeft) {
-            batch.draw(currentFrame, drawX + textureWidth, drawY, -textureWidth, textureHeight); //flipped
+            batch.draw(currentFrame, drawX + textureWidth, drawY, -textureWidth, textureHeight);
         } else {
             batch.draw(currentFrame, drawX, drawY, textureWidth, textureHeight);
         }
 
-        this.weapon.render(batch);
+        if (rotation != 90) {
+            weapon.render(batch);
+        }
     }
 
     @Override
@@ -149,14 +168,14 @@ public class Player extends Entity {
             currentFrame = frontWalkAnimation.getKeyFrame(stateTime, true);
             facingLeft = false;
         } else {
-            currentFrame = sideWalkAnimation.getKeyFrame(stateTime, true); // prawo
+            currentFrame = sideWalkAnimation.getKeyFrame(stateTime, true);
             facingLeft = false;
         }
 
         if (moving) {
             stateTime += delta;
         } else {
-            stateTime = 0f;
+            stateTime = 4;
         }
     }
 
