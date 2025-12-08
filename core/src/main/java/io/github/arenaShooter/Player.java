@@ -14,6 +14,7 @@ import com.badlogic.gdx.math.Vector3;
 import com.badlogic.gdx.utils.Array;
 import io.github.arenaShooter.ui.HealthBar;
 import io.github.arenaShooter.weapons.Gun;
+import io.github.arenaShooter.weapons.Shotgun;
 import io.github.arenaShooter.weapons.Weapon;
 
 
@@ -43,10 +44,10 @@ public class Player extends Entity {
         this.maxHealth = 100;
         this.health = 100;
 
-        this.speed = 250f;
+        this.speed = 150f;
         this.game = game;
 
-        this.weapon = new Gun(game);
+        this.weapon = new Shotgun(game);
 
         this.healthBar = new HealthBar(game, maxHealth, (int)textureWidth);
 
@@ -127,7 +128,7 @@ public class Player extends Entity {
         if (Gdx.input.isTouched(Input.Buttons.LEFT)) {
             // changing input cords to world cords
             Vector3 unprojectedCords = game.camera.unproject(new Vector3(Gdx.input.getX(), Gdx.input.getY(), 0f));
-            Vector2 direction = new Vector2(unprojectedCords.x - getCenterX(), unprojectedCords.y - getCenterY()).nor();
+            Vector2 direction = new Vector2(unprojectedCords.x - getCenterX(), unprojectedCords.y - getCenterY());
 
             weapon.shoot(direction);
         }

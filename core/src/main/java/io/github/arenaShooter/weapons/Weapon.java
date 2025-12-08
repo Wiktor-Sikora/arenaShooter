@@ -31,13 +31,13 @@ public abstract class Weapon {
 
         this.timeSinceLastShot = TimeUtils.millis();
 
-        Vector2 dir = new Vector2(direction).nor();
+        direction.nor();
 
         float rotation;
         boolean flipped = false;
 
-        if (Math.abs(dir.x) > Math.abs(dir.y)) {
-            if (dir.x > 0) {
+        if (Math.abs(direction.x) > Math.abs(direction.y)) {
+            if (direction.x > 0) {
                 rotation = 0;
                 flipped = false;
             } else {
@@ -45,7 +45,7 @@ public abstract class Weapon {
                 flipped = true;
             }
         } else {
-            if (dir.y > 0) rotation = 90;
+            if (direction.y > 0) rotation = 90;
             else rotation = -90;
         }
 
@@ -84,7 +84,7 @@ public abstract class Weapon {
         game.addBullet(new Bullet(
             this.game,
             bulletX, bulletY,
-            dir,
+            direction,
             projectileTexture,
             5, 15,
             this.damage,
