@@ -26,7 +26,6 @@ public abstract class Entity {
     public float maxHealth;
     public float health;
 
-
     public void takeDamage(float amount) {
         if (health <= 0) return;
 
@@ -48,7 +47,7 @@ public abstract class Entity {
         Rectangle futureHitbox = new Rectangle(newX, newY, hitboxWidth, hitboxHeight);
         for(Enemy e : enemies) {
             if(e == this) continue;
-            if(futureHitbox.overlaps(e.hitbox) && e.isAlive()) return false;
+            if(e.isAlive() && futureHitbox.overlaps(e.hitbox)) return false;
         }
         return true;
     }
@@ -66,7 +65,7 @@ public abstract class Entity {
 
     public abstract void update(float delta);
     public void dispose() {
-        healthBar.dispose();
+        if (healthBar != null) healthBar.dispose();
     };
 
     public abstract void kill();

@@ -47,7 +47,7 @@ public class Player extends Entity {
         this.speed = 150f;
         this.game = game;
 
-        this.weapon = new Shotgun(game);
+        this.weapon = new Gun(game);
 
         this.healthBar = new HealthBar(game, maxHealth, (int)textureWidth);
 
