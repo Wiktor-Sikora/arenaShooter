@@ -157,8 +157,8 @@ public class Skeleton extends Enemy {
                     batch.draw(toDraw, drawX, drawY, textureWidth, textureHeight);
                 }
                 return;
-            case IDLE:
-
+            case ALL_ACTIONS_FINISHED:
+                return;
             default:
                 currentFrame = walkAnimation.getKeyFrame(0, false);
                 break;
