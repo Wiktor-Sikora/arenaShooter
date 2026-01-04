@@ -7,7 +7,7 @@ import io.github.arenaShooter.Main;
 public class Gun extends Weapon {
     public Gun(Main game) {
         this.damage = 20;
-        this.range = 500f;
+        this.range = 300f;
         this.rateOfFire = 3f;
         this.projectileSpeed = 500f;
         this.weaponTexture = new Texture("gun.png");
