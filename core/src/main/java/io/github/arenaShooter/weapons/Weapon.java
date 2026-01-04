@@ -31,12 +31,65 @@ public abstract class Weapon {
 
         this.timeSinceLastShot = TimeUtils.millis();
 
-        // TODO: add bullet offset to the end of a barrel
-        // TODO: add bullet initial rotation
-        game.addBullet(new Bullet(this.game,
-            game.player.getCenterX(), game.player.getCenterY(),
-            direction, projectileTexture, 5, 15,
-            this.damage, this.projectileSpeed, this.range,
+        Vector2 dir = new Vector2(direction).nor();
+
+        float rotation;
+        boolean flipped = false;
+
+        if (Math.abs(dir.x) > Math.abs(dir.y)) {
+            if (dir.x > 0) {
+                rotation = 0;
+                flipped = false;
+            } else {
+                rotation = 0;
+                flipped = true;
+            }
+        } else {
+            if (dir.y > 0) rotation = 90;
+            else rotation = -90;
+        }
+
+        float offsetX, offsetY;
+
+        if (rotation == 0) {
+            offsetX = flipped ? -35 : 15;
+            offsetY = 0;
+        } else if (rotation == 90) {
+            offsetX = -10;
+            offsetY = 25;
+        } else { // -90
+            offsetX = 10;
+            offsetY = -15;
+        }
+
+        float weaponX = game.player.getCenterX() + offsetX;
+        float weaponY = game.player.getCenterY() + offsetY;
+
+        float bulletX = weaponX;
+        float bulletY = weaponY;
+
+        if (rotation == 0 && !flipped) {         //right
+            bulletX += textureWidth / 2f + 10;
+        }
+        else if (rotation == 0 && flipped) {     //left
+            bulletX -= textureWidth / 2f + 10;
+        }
+        else if (rotation == 90) {               //up
+            bulletY += textureHeight / 2f + 10;
+        }
+        else if (rotation == -90) {              //down
+            bulletY -= textureHeight / 2f + 10;
+        }
+
+        game.addBullet(new Bullet(
+            this.game,
+            bulletX, bulletY,
+            dir,
+            projectileTexture,
+            5, 15,
+            this.damage,
+            this.projectileSpeed,
+            this.range,
             Bullet.Owner.PLAYER
         ));
     }
@@ -45,21 +98,38 @@ public abstract class Weapon {
         Vector3 unprojectedCords = game.camera.unproject(new Vector3(Gdx.input.getX(), Gdx.input.getY(), 0f));
         Vector2 direction = new Vector2(unprojectedCords.x - game.player.getCenterX(), unprojectedCords.y - game.player.getCenterY()).nor();
 
-        float rotation = direction.angleDeg();
+        float rotation = 0f;
         boolean flipped = false;
-        float offsetX;
-        if (direction.x < 0) {
-            flipped = true;
-            rotation = rotation + 180;
-            offsetX = -30;
-        } else {
-            offsetX = 0;
+
+        if (Math.abs(direction.x) > Math.abs(direction.y)) {
+            if (direction.x > 0) rotation = 0;
+            else { rotation = 0; flipped = true; }
+        } else { //up / down
+            if (direction.y > 0) rotation = 90;
+            else rotation = -90;
         }
 
+        float offsetX = 0, offsetY = 0;
+        if (game.player.facingLeft) {
+            offsetX = -35;
+        } else {
+            offsetX = 15;
+        }
 
-        batch.draw(weaponTexture,
-            game.player.getCenterX() + direction.x * 15 + offsetX, game.player.getCenterY() + direction.y * 30,
-            textureWidth/2, textureHeight/2,
+        if (rotation == 90) {
+            offsetX = -10;
+            offsetY = 25;
+        }
+        else if (rotation == -90) {
+            offsetX = 0;
+            offsetY = -15;
+        }
+
+        batch.draw(
+            weaponTexture,
+            game.player.getCenterX() + offsetX,
+            game.player.getCenterY() + offsetY,
+            textureWidth / 2, textureHeight / 2,
             textureWidth, textureHeight,
             1f, 1f,
             rotation,

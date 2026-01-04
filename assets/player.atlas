@@ -1,0 +1,30 @@
+player.png
+size: 768, 64
+format: RGBA8888
+filter: Linear, Linear
+repeat: none
+pma: false
+player_back_0
+  bounds: 0, 0, 64, 64
+player_back_1
+  bounds: 64, 0, 64, 64
+player_back_2
+  bounds: 128, 0, 64, 64
+player_front_0
+  bounds: 192, 0, 64, 64
+player_front_1
+  bounds: 256, 0, 64, 64
+player_front_2
+  bounds: 320, 0, 64, 64
+player_side_0
+  bounds: 384, 0, 64, 64
+player_side_1
+  bounds: 448, 0, 64, 64
+player_side_2
+  bounds: 512, 0, 64, 64
+player_side_3
+  bounds: 576, 0, 64, 64
+player_side_4
+  bounds: 640, 0, 64, 64
+player_side_5
+  bounds: 704, 0, 64, 64
