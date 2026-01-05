@@ -53,8 +53,8 @@ public class Main extends ApplicationAdapter {
 
         enemies = new Array<>();
         for (int i = 0; i < 3; i++) {
-            enemies.add(new Skeleton((float)(Math.random() * 501), (float)(Math.random() * 501), this));
-            enemies.add(new Zombie((float)(Math.random() * 501), (float)(Math.random() * 501), this));
+            enemies.add(new Skeleton((float)(Math.random() * PLAYABLE_AREA_SIZE), (float)(Math.random() * PLAYABLE_AREA_SIZE), this));
+            enemies.add(new Zombie((float)(Math.random() * PLAYABLE_AREA_SIZE), (float)(Math.random() * PLAYABLE_AREA_SIZE), this));
         }
 
         bullets = new Array<>();
