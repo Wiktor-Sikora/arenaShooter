@@ -30,9 +30,7 @@ public abstract class Enemy extends Entity {
 
     @Override
     public void render(SpriteBatch batch) {
-        if (isAlive()) {
-            super.render(batch);
-        }
+        super.render(batch);
     }
 
     @Override
@@ -50,25 +48,5 @@ public abstract class Enemy extends Entity {
         return State.ALL_ACTIONS_FINISHED == state;
     }
     public boolean isAlive() { return State.DEAD != state; }
-
-    public void kill() {
-        healthBar.dispose();
-        state = State.DEAD;
-    }
-
-    public void stepTowardsPlayer(float delta, float dx, float dy, float distanceToPlayer) {
-        float newX = hitbox.x + (dx / distanceToPlayer) * speed * delta;
-        float newY = hitbox.y + (dy / distanceToPlayer) * speed * delta;
-
-        if (canMove(newX, newY, game.enemies)) {
-            hitbox.x = newX;
-            hitbox.y = newY;
-        } else {
-            float sideStep = speed * delta * 0.5f;
-            if (canMove(hitbox.x, hitbox.y + sideStep, game.enemies)) hitbox.y += sideStep;
-            else if (canMove(hitbox.x, hitbox.y - sideStep, game.enemies)) hitbox.y -= sideStep;
-            else if (canMove(hitbox.x + sideStep, hitbox.y, game.enemies)) hitbox.x += sideStep;
-        }
-    }
 }
 

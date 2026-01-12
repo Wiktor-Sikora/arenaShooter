@@ -78,8 +78,23 @@ public class Skeleton extends Enemy {
         switch (state) {
             case WALK:
                 //go to player
-                if (distanceToPlayer > range) {
-                    stepTowardsPlayer(delta, dx, dy, distanceToPlayer);
+                if(distanceToPlayer > range) {
+                    float moveX = (dx / distanceToPlayer) * speed * delta;
+                    float moveY = (dy / distanceToPlayer) * speed * delta;
+
+                    float newX = hitbox.x + moveX;
+                    float newY = hitbox.y + moveY;
+
+                    if(canMove(newX, newY, game.enemies)) {
+                        hitbox.x = newX;
+                        hitbox.y = newY;
+                    } else {
+                        float sidestep = speed * delta * 0.5f;
+                        if(canMove(hitbox.x, hitbox.y + sidestep, game.enemies)) hitbox.y += sidestep;
+                        else if(canMove(hitbox.x, hitbox.y - sidestep, game.enemies)) hitbox.y -= sidestep;
+                        else if(canMove(hitbox.x + sidestep, hitbox.y, game.enemies)) hitbox.x += sidestep;
+                    }
+
                 } else {
                     state = State.ATTACK;
                     stateTime = 0f;
@@ -157,8 +172,8 @@ public class Skeleton extends Enemy {
                     batch.draw(toDraw, drawX, drawY, textureWidth, textureHeight);
                 }
                 return;
-            case ALL_ACTIONS_FINISHED:
-                return;
+            case IDLE:
+
             default:
                 currentFrame = walkAnimation.getKeyFrame(0, false);
                 break;
@@ -192,8 +207,7 @@ public class Skeleton extends Enemy {
 
     @Override
     public void kill() {
-        super.kill();
-
+        state = State.DEAD;
         deathSound.play();
         stateTime = 0f;
     }

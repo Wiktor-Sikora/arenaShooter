@@ -12,6 +12,7 @@ import com.badlogic.gdx.utils.Array;
 import io.github.arenaShooter.Main;
 import io.github.arenaShooter.ui.HealthBar;
 
+import java.util.List;
 
 public class Zombie extends Enemy {
 
@@ -55,6 +56,18 @@ public class Zombie extends Enemy {
         this.healthBar = new HealthBar(game, maxHealth, (int)textureWidth);
     }
 
+
+    @Override
+    protected boolean canMove(float newX, float newY, Array<Enemy> enemies) {
+        Rectangle futureHitbox = new Rectangle(newX, newY, hitboxWidth, hitboxHeight);
+        for (Enemy e : enemies) {
+            if (e == this) continue;
+            if (e instanceof Zombie && (e.state == State.ATTACK || e.state == State.IDLE)) continue;
+            if (futureHitbox.overlaps(e.hitbox)) return false;
+        }
+        return true;
+    }
+
     @Override
     public void update(float delta) {
         stateTime += delta;
@@ -69,7 +82,26 @@ public class Zombie extends Enemy {
             case WALK:
                 //go to player
                 if (distanceToPlayer > range) {
-                    stepTowardsPlayer(delta, dx, dy, distanceToPlayer);
+                    Vector2 move = new Vector2(dx, dy).nor().scl(speed * delta);
+
+                    Vector2 avoid = new Vector2(0, 0);
+                    for (Enemy e : game.enemies) {
+                        if (e == this) continue;
+
+                        if (e instanceof Zombie && (e.state == State.ATTACK || e.state == State.IDLE)) continue;
+
+                        Vector2 diff = new Vector2(hitbox.x - e.hitbox.x, hitbox.y - e.hitbox.y);
+                        float dist = diff.len();
+                        if (dist < hitboxWidth) {
+                            avoid.add(diff.nor().scl((hitboxWidth - dist) / 2f));
+                        }
+                    }
+
+                    move.add(avoid);
+
+                    hitbox.x += move.x;
+                    hitbox.y += move.y;
+
                 } else {
                     state = State.ATTACK;
                     stateTime = 0f;
@@ -132,8 +164,6 @@ public class Zombie extends Enemy {
                     batch.draw(toDraw, drawX, drawY, textureWidth, textureHeight);
                 }
                 return;
-            case ALL_ACTIONS_FINISHED:
-                return;
             default:
                 currentFrame = walkAnimation.getKeyFrame(0, false);
                 break;
@@ -167,8 +197,10 @@ public class Zombie extends Enemy {
 
     @Override
     public void kill() {
-        super.kill();
+        state = State.DEAD;
         deathSound.play();
         stateTime = 0f;
     }
+
+
 }
