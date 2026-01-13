@@ -62,16 +62,16 @@ public class Main extends ApplicationAdapter {
 
         map = new Texture("map.png");
 
-        player = new Player(500f, 500f, new Texture("dummy.png"), this);
+        player = new Player(500f, 500f, this);
 
         playerHud = new playerHud(this);
         shopUI = new ShopUI(this);  // NOWE: Inicjalizacja ShopUI
 
         enemies = new Array<>();
-        for (int i = 0; i < 3; i++) {
-            enemies.add(new Skeleton((float)(Math.random() * 501), (float)(Math.random() * 501), this));
-            enemies.add(new Zombie((float)(Math.random() * 501), (float)(Math.random() * 501), this));
-        }
+//        for (int i = 0; i < 1; i++) {
+//            enemies.add(new Skeleton((float)(Math.random() * PLAYABLE_AREA_SIZE), (float)(Math.random() * PLAYABLE_AREA_SIZE), this));
+//            enemies.add(new Zombie((float)(Math.random() * PLAYABLE_AREA_SIZE), (float)(Math.random() * PLAYABLE_AREA_SIZE), this));
+//        }
 
         bullets = new Array<>();
 
@@ -83,6 +83,10 @@ public class Main extends ApplicationAdapter {
     private void startNextWave() {
         waveNumber++;
         gameState = GameState.PLAYING;
+        shopUI.randomizeShop();
+        shopUI.resetWavePurchases();
+
+        float multiplier = 1f + (waveNumber - 1) * 0.05f; // +5% per wave
 
         // NOWE: Reset statystyk fali
         if (shopUI != null) {
@@ -96,11 +100,18 @@ public class Main extends ApplicationAdapter {
             float x = (float)(Math.random() * 501);
             float y = (float)(Math.random() * 501);
 
+            Enemy enemy;
+
             if (Math.random() > 0.5) {
-                enemies.add(new Skeleton(x, y, this));
+                enemy = new Skeleton(x, y, this);
             } else {
-                enemies.add(new Zombie(x, y, this));
+                enemy = new Zombie(x, y, this);
             }
+
+            enemy.speed = enemy.baseSpeed * multiplier;
+            enemy.damage = enemy.baseDamage * multiplier;
+
+            enemies.add(enemy);
         }
     }
 
@@ -116,46 +127,18 @@ public class Main extends ApplicationAdapter {
 
         if (gameState == GameState.PLAYING) {
             player.handleInput(delta);
-        } else if (gameState == GameState.STORE) {
-            // NOWE: Obsluga sklepu
+            return;
+        }else if (gameState == GameState.STORE) {
+
             if (Gdx.input.isKeyJustPressed(Input.Keys.ENTER)) {
                 startNextWave();
+                return;
             }
-            if (Gdx.input.isKeyJustPressed(Input.Keys.NUM_1)) {
-                player.equipWeapon(new Gun(this));
-            }
-            if (Gdx.input.isKeyJustPressed(Input.Keys.NUM_2)) {
-                if (player.gold >= ShopUI.SHOTGUN_PRICE) {
-                    player.gold -= ShopUI.SHOTGUN_PRICE;
-                    player.equipWeapon(new Shotgun(this));
-                    System.out.println("Kupiono Shotgun! Zloto: " + player.gold);
-                } else {
-                    System.out.println("Za malo zlota na Shotgun (" + ShopUI.SHOTGUN_PRICE + ")");
-                }
-            }
-            if (Gdx.input.isKeyJustPressed(Input.Keys.NUM_3)) {
-                if (player.gold >= ShopUI.UZI_PRICE) {
-                    player.gold -= ShopUI.UZI_PRICE;
-                    player.equipWeapon(new Uzi(this));
-                    System.out.println("Kupiono Uzi! Zloto: " + player.gold);
-                } else {
-                    System.out.println("Za malo zlota na Uzi (" + ShopUI.UZI_PRICE + ")");
-                }
-            }
-            // NOWE: Kupowanie mikstury HP
-            if (Gdx.input.isKeyJustPressed(Input.Keys.NUM_4)) {
-                if (player.gold >= ShopUI.POTION_PRICE) {
-                    if (player.health < player.maxHealth) {
-                        player.gold -= ShopUI.POTION_PRICE;
-                        player.health = Math.min(player.health + ShopUI.POTION_HEAL, player.maxHealth);
-                        System.out.println("Kupiono miksture! HP: " + (int)player.health + "/" + (int)player.maxHealth);
-                    } else {
-                        System.out.println("Masz pelne HP!");
-                    }
-                } else {
-                    System.out.println("Za malo zlota na miksture (" + ShopUI.POTION_PRICE + ")");
-                }
-            }
+
+            if (Gdx.input.isKeyJustPressed(Input.Keys.NUM_1)) shopUI.buyItem(0);
+            if (Gdx.input.isKeyJustPressed(Input.Keys.NUM_2)) shopUI.buyItem(1);
+            if (Gdx.input.isKeyJustPressed(Input.Keys.NUM_3)) shopUI.buyItem(2);
+            if (Gdx.input.isKeyJustPressed(Input.Keys.NUM_4)) shopUI.buyItem(3);
         }
     }
 
@@ -232,12 +215,14 @@ public class Main extends ApplicationAdapter {
 
         batch.end();
 
-        playerHud.render();
-        stage.draw();
-
         // NOWE: Renderowanie sklepu gdy gracz jest w stanie STORE
         if (gameState == GameState.STORE && shopUI != null) {
+            stage.draw();
+            playerHud.render();
             shopUI.render();
+        } else {
+            stage.draw();
+            playerHud.render();
         }
     }
 

@@ -9,6 +9,8 @@ import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
 import io.github.arenaShooter.Main;
 
+import java.util.Objects;
+
 /**
  * ============================================
  * ZAKTUALIZOWANA KLASA - HUD gracza podczas gry
@@ -22,6 +24,8 @@ public class playerHud {
     private ShapeRenderer shapeRenderer;
     private BitmapFont font;
     private Texture coinTexture;
+
+    private boolean showExtraStats = false;
 
     private static final Color GOLD_COLOR = new Color(1f, 0.84f, 0f, 1f);
     private static final Color HP_GREEN = new Color(0.2f, 0.8f, 0.2f, 1f);
@@ -43,24 +47,13 @@ public class playerHud {
         coinTexture = new Texture(pixmap);
         pixmap.dispose();
 
-        // Próba załadowania z pliku
-        try {
-            coinTexture = new Texture(Gdx.files.internal("coin.png"));
-        } catch (Exception e) {
-            // Używamy tekstury zastępczej
-        }
+        coinTexture = new Texture(Gdx.files.internal("coin.png"));
     }
 
     public void render() {
         float W = Gdx.graphics.getWidth();
         float H = Gdx.graphics.getHeight();
-        float hudY = H - 35;
-
-        // Tło HUD
-        shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
-        shapeRenderer.setColor(0, 0, 0, 0.6f);
-        shapeRenderer.rect(0, H - 45, W, 45);
-        shapeRenderer.end();
+        float hudY = H + 35;
 
         batch.begin();
 
@@ -68,6 +61,27 @@ public class playerHud {
         batch.draw(coinTexture, 10, hudY - 5, 22, 22);
         font.setColor(GOLD_COLOR);
         font.draw(batch, "" + game.player.gold, 38, hudY + 12);
+
+        if (Gdx.input.isKeyJustPressed(com.badlogic.gdx.Input.Keys.TAB)) {
+            showExtraStats = !showExtraStats;
+        }
+
+        if (showExtraStats) {
+            float statsX = 10;
+            float statsY = hudY - 25; // pod HP
+            float lineGap = -25;
+
+            font.setColor(Color.LIGHT_GRAY);
+
+            font.draw(batch, "Speed: " + game.player.speed, statsX, statsY);
+            if (Objects.equals(game.player.weapon.name, "Shotgun")) {
+                font.draw(batch, "DMG: " + game.player.weapon.damage + " x 6", statsX, statsY + lineGap);
+            } else {
+                font.draw(batch, "DMG: " + game.player.weapon.damage, statsX, statsY + lineGap);
+            }
+
+
+        }
 
         batch.end();
 

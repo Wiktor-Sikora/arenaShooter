@@ -7,8 +7,14 @@ import com.badlogic.gdx.graphics.g2d.BitmapFont;
 import com.badlogic.gdx.graphics.g2d.GlyphLayout;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
-import com.badlogic.gdx.utils.Align;
 import io.github.arenaShooter.Main;
+import io.github.arenaShooter.Player;
+import io.github.arenaShooter.weapons.Gun;
+import io.github.arenaShooter.weapons.Shotgun;
+import io.github.arenaShooter.weapons.Uzi;
+
+import java.lang.String;
+import java.util.*;
 
 public class ShopUI {
     private Main game;
@@ -17,12 +23,12 @@ public class ShopUI {
     private BitmapFont font;
     private GlyphLayout layout;
 
+    private List<ShopItem> allItems = new ArrayList<>();
+    private List<ShopItem> currentItems = new ArrayList<>();
+
     // Tekstury
-    private Texture gunTexture;
-    private Texture shotgunTexture;
-    private Texture uziTexture;
-    private Texture potionTexture;
-    private Texture coinTexture;
+    private Texture gunTexture, shotgunTexture, uziTexture, potionTexture, coinTexture, bootTexture;
+
 
     // CENY
     public static final int GUN_PRICE = 0;
@@ -30,6 +36,8 @@ public class ShopUI {
     public static final int UZI_PRICE = 200;
     public static final int POTION_PRICE = 100;
     public static final int POTION_HEAL = 50;
+    public static final int BOOT_PRICE = 300;
+    public static final int BOOT_BOOST = 5;
 
     // Statystyki
     private int enemiesKilled = 0;
@@ -44,12 +52,101 @@ public class ShopUI {
         this.layout = new GlyphLayout();
 
         // Ładowanie tekstur
-        gunTexture = loadTexture("gun_icon.png");
-        shotgunTexture = loadTexture("shotgun_icon.png");
+        gunTexture = loadTexture("gun.png");
+        shotgunTexture = loadTexture("shotgun.png");
         uziTexture = loadTexture("uzi_icon.png");
         potionTexture = loadTexture("potion.png");
         coinTexture = loadTexture("coin.png");
+        bootTexture = loadTexture("winged_boot.png");
+
+        allItems.add(new ShopItem("MIKSTURA", "+50 HP", POTION_PRICE, potionTexture, false));
+        allItems.add(new ShopItem("PISTOLET", "Podstawowy", GUN_PRICE, gunTexture, false));
+        allItems.add(new ShopItem("SHOTGUN", "Rozrzut", SHOTGUN_PRICE, shotgunTexture, false));
+        allItems.add(new ShopItem("UZI", "Szybki ogien", UZI_PRICE, uziTexture, false));
+        allItems.add(new ShopItem("WINGED BOOTS", "+5 Speed", BOOT_PRICE, bootTexture, true));
     }
+
+    private static class ShopItem {
+        String name;
+        String desc;
+        int price;
+        Texture texture;
+
+        boolean oncePerWave;
+        boolean boughtThisWave;
+
+        ShopItem(String name, String desc, int price, Texture texture, boolean oncePerWave) {
+            this.name = name;
+            this.desc = desc;
+            this.price = price;
+            this.texture = texture;
+
+            this.oncePerWave = oncePerWave;
+            this.boughtThisWave = false;
+        }
+    }
+
+    public void buyItem(int index) {
+        if (index < 0 || index >= currentItems.size()) return;
+
+        ShopItem item = currentItems.get(index);
+
+        Player player = game.player;
+
+        if (player.gold < item.price) {
+            System.out.println("Za malo zlota!");
+            return;
+        }
+
+        if (item.oncePerWave && item.boughtThisWave) {
+            System.out.println("Ten przedmiot mozna kupic tylko raz na fale!");
+            return;
+        }
+
+        switch (item.name) {
+
+            case "PISTOLET":
+                player.equipWeapon(new Gun(game));
+                break;
+
+            case "SHOTGUN":
+                player.gold -= item.price;
+                player.equipWeapon(new Shotgun(game));
+                break;
+
+            case "UZI":
+                player.gold -= item.price;
+                player.equipWeapon(new Uzi(game));
+                break;
+
+            case "MIKSTURA":
+                if (player.health >= player.maxHealth) {
+                    System.out.println("Masz pelne HP!");
+                    return;
+                }
+                player.gold -= item.price;
+
+                if (player.health+POTION_HEAL <= player.maxHealth){
+                    player.health += POTION_HEAL;
+                } else {
+                    player.health = player.maxHealth;
+                }
+
+                break;
+
+            case "WINGED BOOTS":
+                    player.gold -= item.price;
+                    game.player.speed += BOOT_BOOST;
+                break;
+        }
+
+        if (item.oncePerWave) {
+            item.boughtThisWave = true;
+        }
+
+        System.out.println("Kupiono: " + item.name);
+    }
+
 
     private Texture loadTexture(String path) {
         try {
@@ -59,16 +156,36 @@ public class ShopUI {
         }
     }
 
+    public void randomizeShop() {
+        currentItems.clear();
+
+        List<ShopItem> temp = new ArrayList<>(allItems);
+        temp.remove(0);
+        currentItems.add(allItems.get(0));
+        Collections.shuffle(temp);
+
+        // max 4 items
+        for (int i = 0; i < Math.min(4, temp.size()); i++) {
+            currentItems.add(temp.get(i));
+        }
+    }
+
+    public void resetWavePurchases() {
+        for (ShopItem item : currentItems) {
+            item.boughtThisWave = false;
+        }
+    }
+
     public void render() {
         float screenW = Gdx.graphics.getWidth();
-        float screenH = Gdx.graphics.getHeight();
+        float screenH = Gdx.graphics.getHeight()+80;
         float centerX = screenW / 2;
         float centerY = screenH / 2;
 
         // --- 1. Przyciemnienie tła ---
         Gdx.gl.glEnable(Gdx.gl.GL_BLEND);
         shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
-        shapeRenderer.setColor(0, 0, 0, 0.85f);
+        shapeRenderer.setColor(0, 0, 0, 0.65f);
         shapeRenderer.rect(0, 0, screenW, screenH);
         shapeRenderer.end();
 
@@ -99,13 +216,26 @@ public class ShopUI {
         float startY = centerY + (totalGridH / 2) - 60; // -60 żeby zrobić miejsce na nagłówek
 
         // Rysowanie kafelków
-        // Wiersz 1
-        drawTile(1, "PISTOLET", "Podstawowy", GUN_PRICE, gunTexture, startX, startY - tileH, tileW, tileH);
-        drawTile(2, "SHOTGUN", "Rozrzut", SHOTGUN_PRICE, shotgunTexture, startX + tileW + gap, startY - tileH, tileW, tileH);
+        int index = 0;
 
-        // Wiersz 2
-        drawTile(3, "UZI", "Szybki ogien", UZI_PRICE, uziTexture, startX, startY - tileH - tileH - gap, tileW, tileH);
-        drawTile(4, "MIKSTURA", "+50 HP", POTION_PRICE, potionTexture, startX + tileW + gap, startY - tileH - tileH - gap, tileW, tileH);
+        for (int row = 0; row < 2; row++) {
+            for (int col = 0; col < 2; col++) {
+                if (index >= currentItems.size()) break;
+
+                ShopItem item = currentItems.get(index);
+
+                float x = startX + col * (tileW + gap);
+                float y = startY - tileH - row * (tileH + gap);
+
+                drawTile(
+                    index + 1,
+                    item,
+                    x, y, tileW, tileH
+                );
+
+                index++;
+            }
+        }
 
         // --- 4. Instrukcja na dole ---
         batch.begin();
@@ -115,26 +245,27 @@ public class ShopUI {
         batch.end();
     }
 
-    private void drawTile(int key, String name, String desc, int price, Texture texture, float x, float y, float w, float h) {
+    private void drawTile(int key, ShopItem item, float x, float y, float w, float h) {
         boolean isEquipped = false;
         // Sprawdź czy to aktualna broń
-        if (name.equalsIgnoreCase("PISTOLET") && game.player.weapon.name.contains("Pistolet")) isEquipped = true;
-        if (name.equalsIgnoreCase("UZI") && game.player.weapon.name.contains("Uzi")) isEquipped = true;
-        if (name.equalsIgnoreCase("SHOTGUN") && game.player.weapon.name.contains("Shotgun")) isEquipped = true;
+        if (item.name.equalsIgnoreCase("PISTOLET") && game.player.weapon.name.contains("Pistolet")) isEquipped = true;
+        if (item.name.equalsIgnoreCase("UZI") && game.player.weapon.name.contains("Uzi")) isEquipped = true;
+        if (item.name.equalsIgnoreCase("SHOTGUN") && game.player.weapon.name.contains("Shotgun")) isEquipped = true;
 
         // Potion nigdy nie jest "equipped", ale sprawdzamy czy HP jest pełne
-        boolean isFullHp = name.equalsIgnoreCase("MIKSTURA") && game.player.health >= game.player.maxHealth;
+        boolean isFullHp = item.name.equalsIgnoreCase("MIKSTURA") && game.player.health >= game.player.maxHealth;
 
-        boolean canAfford = game.player.gold >= price;
+        boolean canAfford = game.player.gold >= item.price;
 
         // --- KOLORYSTYKA ---
         Color bgColor;
         Color borderColor;
 
+
         if (isEquipped) {
             bgColor = new Color(0.1f, 0.3f, 0.1f, 0.9f); // Ciemna zieleń
             borderColor = Color.LIME;
-        } else if (isFullHp) {
+        } else if (isFullHp || item.oncePerWave && item.boughtThisWave) {
             bgColor = new Color(0.2f, 0.2f, 0.2f, 0.9f); // Szary
             borderColor = Color.GRAY;
         } else if (canAfford) {
@@ -169,22 +300,40 @@ public class ShopUI {
         font.draw(batch, "[" + key + "]", x + 10, y + h - 10);
 
         // Ikona (Na środku, przesunięta w górę)
-        float iconSize = 80;
-        if (texture != null) {
-            batch.draw(texture, x + (w - iconSize) / 2, y + h - iconSize - 30, iconSize, iconSize);
+        float maxIconSize = 80f;
+
+        float yOffset = 0;
+
+        if (item.name.equalsIgnoreCase("SHOTGUN")) {
+            yOffset = -15;
         }
+
+        float texW = item.texture.getWidth();
+        float texH = item.texture.getHeight();
+
+        float scale = maxIconSize / Math.max(texW, texH);
+
+        float drawW = texW * scale;
+        float drawH = texH * scale;
+
+        batch.draw(item.texture,
+            x + (w - drawW) / 2,
+            y + (h - drawH) - 30 + yOffset,
+            drawW,
+            drawH
+        );
 
         // Nazwa
         font.getData().setScale(1.8f);
         font.setColor(borderColor);
-        layout.setText(font, name);
-        font.draw(batch, name, x + (w - layout.width) / 2, y + h - 120);
+        layout.setText(font, item.name);
+        font.draw(batch, item.name, x + (w - layout.width) / 2, y + h - 130);
 
         // Opis
         font.getData().setScale(1.1f);
         font.setColor(Color.LIGHT_GRAY);
-        layout.setText(font, desc);
-        font.draw(batch, desc, x + (w - layout.width) / 2, y + h - 150);
+        layout.setText(font, item.desc);
+        font.draw(batch, item.desc, x + (w - layout.width) / 2, y + h - 110);
 
         // Cena (na samym dole)
         font.getData().setScale(1.5f);
@@ -195,12 +344,14 @@ public class ShopUI {
         } else if (isFullHp) {
             font.setColor(Color.GRAY);
             priceText = "PELNE ZDROWIE";
-        } else if (price == 0) {
+        } else if (item.oncePerWave && item.boughtThisWave) {
+            priceText = "KUPIONE";
+        } else if (item.price == 0) {
             font.setColor(Color.GREEN);
             priceText = "DARMOWE";
         } else {
             font.setColor(canAfford ? Color.GOLD : Color.RED);
-            priceText = price + "";
+            priceText = item.price + "";
         }
 
         layout.setText(font, priceText);
