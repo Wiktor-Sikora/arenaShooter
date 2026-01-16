@@ -21,7 +21,6 @@ public class Skeleton extends Enemy {
 
     private float damageTimer = 0f;
 
-    private final int DAMAGE_ON_CONTACT = 50;
     private final float REST_DURATION = 1f;
     private final int MAX_ATTACKS = 3;
     private final Texture bulletTexture = new Texture("bone.png");
@@ -34,9 +33,11 @@ public class Skeleton extends Enemy {
         this.hitboxHeight = 27;
         this.hitboxWidth = textureWidth / 2;
         this.hitbox = new Rectangle(startX, startY, hitboxWidth, hitboxHeight);
-        this.damage = 20f;
+        this.baseDamage = 10f;
+        this.damage = 10f;
         this.projectileSpeed = 100f;
         this.projectileRange = 300f;
+        this.baseSpeed = 100f;
         this.speed = 100f;
         this.maxHealth = this.health = 100;
         this.range = 150f;
@@ -128,10 +129,6 @@ public class Skeleton extends Enemy {
                 }
                 break;
         }
-
-        if (checkPlayerCollision()) {
-            takeDamage(DAMAGE_ON_CONTACT);
-        };
     }
 
     @Override

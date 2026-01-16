@@ -14,8 +14,9 @@ import com.badlogic.gdx.math.Vector3;
 import com.badlogic.gdx.utils.Array;
 import io.github.arenaShooter.ui.HealthBar;
 import io.github.arenaShooter.weapons.Gun;
-import io.github.arenaShooter.weapons.Shotgun;
 import io.github.arenaShooter.weapons.Weapon;
+import io.github.arenaShooter.weapons.Uzi;
+import io.github.arenaShooter.weapons.Shotgun;
 
 
 public class Player extends Entity {
@@ -35,6 +36,9 @@ public class Player extends Entity {
 
     private final TextureAtlas textureAtlas = new TextureAtlas(Gdx.files.internal("player.atlas"));
 
+    public int gold = 0;
+    public int DMG = 0;
+
     public Player(float startX, float startY, Main game) {
         this.textureHeight = textureWidth = 64;
         this.hitboxHeight = textureHeight;
@@ -44,10 +48,11 @@ public class Player extends Entity {
         this.maxHealth = 100;
         this.health = 100;
 
-        this.speed = 150f;
+        this.speed = 85f;
         this.game = game;
 
         this.weapon = new Gun(game);
+        this.weapon.damage += DMG;
 
         this.healthBar = new HealthBar(game, maxHealth, (int)textureWidth);
 
@@ -72,6 +77,13 @@ public class Player extends Entity {
         currentFrame = sideWalkAnimation.getKeyFrame(3, false);
     }
 
+    public void equipWeapon(Weapon newWeapon) {
+        if(this.weapon != null) {
+            this.weapon.dispose();
+        }
+        this.weapon = newWeapon;
+        System.out.println("Selected weapon: " + newWeapon.name);
+    }
 
 
     @Override
@@ -118,8 +130,8 @@ public class Player extends Entity {
         handleInput(delta);
 
         //player does not exceed the border of the map
-        hitbox.setX(MathUtils.clamp(hitbox.getX(), game.AREA_OFFSET, game.PLAYABLE_AREA_SIZE - game.AREA_OFFSET));
-        hitbox.setY(MathUtils.clamp(hitbox.getY(), game.AREA_OFFSET, game.PLAYABLE_AREA_SIZE - game.AREA_OFFSET));
+        hitbox.setX(MathUtils.clamp(hitbox.getX(), game.AREA_OFFSET, game.PLAYABLE_AREA_SIZE - game.AREA_OFFSET + 100f));
+        hitbox.setY(MathUtils.clamp(hitbox.getY(), game.AREA_OFFSET, game.PLAYABLE_AREA_SIZE - game.AREA_OFFSET + 100f));
     }
 
     public void handleInput(float delta) {
@@ -180,6 +192,22 @@ public class Player extends Entity {
         }
     }
 
+    // ==========================================
+    // ZMIANA - Nadpisana metoda takeDamage do rejestracji statystyk
+    // ==========================================
+    @Override
+    public void takeDamage(float amount) {
+        if (health <= 0) return;
+
+        health -= amount;
+
+        if (health <= 0) {
+            health = 0;
+            kill();
+        }
+    }
+    // ==========================================
+
     public void dispose() {
         super.dispose();
 
@@ -190,6 +218,13 @@ public class Player extends Entity {
 
     @Override
     public void kill() {
-
+        // ==========================================
+        // NOWE - Obsługa śmierci gracza
+        // ==========================================
+        alive = false;
+        System.out.println("=== GAME OVER ===");
+        System.out.println("Wave: " + game.waveNumber);
+        System.out.println("Collected gold: " + gold);
+        // ==========================================
     }
 }

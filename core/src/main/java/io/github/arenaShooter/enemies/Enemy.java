@@ -26,7 +26,8 @@ public abstract class Enemy extends Entity {
     // stats
     protected float projectileRange;
     protected float projectileSpeed;
-    protected float damage;
+    public float baseDamage;
+    public float damage;
 
     @Override
     public void render(SpriteBatch batch) {
@@ -71,4 +72,3 @@ public abstract class Enemy extends Entity {
         }
     }
 }
-

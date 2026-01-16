@@ -24,11 +24,14 @@ public class Zombie extends Enemy {
     private float attackTimer = 0f;
 
     public Zombie(float startX, float startY, Main game) {
-        this.textureHeight = textureWidth = 64;
+        this.textureHeight = textureWidth = 67;
         this.hitboxHeight = 27;
         this.hitboxWidth = textureWidth / 2;
         this.hitbox = new Rectangle(startX, startY, hitboxWidth, hitboxHeight);
+        this.baseSpeed = 80f;
         this.speed = 80f;
+        this.baseDamage = 30f;
+        this.damage = 30f;
         this.maxHealth = this.health = 100;
         this.range = 16f;
         this.rateOfFire = 1f;
@@ -84,7 +87,7 @@ public class Zombie extends Enemy {
 
                 if (frameIndex == 1 && !hasDealtDamageThisAttack) {
                     if (checkPlayerCollision()) {
-                        game.player.takeDamage(10);
+                        game.player.takeDamage(this.damage);
                     }
                     hasDealtDamageThisAttack = true;
                 }
@@ -103,10 +106,6 @@ public class Zombie extends Enemy {
                 }
                 break;
         }
-
-        if (checkPlayerCollision()) {
-            takeDamage(DAMAGE_ON_CONTACT);
-        };
     }
 
     @Override

@@ -18,6 +18,9 @@ public abstract class Weapon {
     protected float projectileOffsetY;
 
     // stats
+    public String name;
+    public int price;
+
     public float damage;
     public float range;
     public float rateOfFire; // bullets per second
