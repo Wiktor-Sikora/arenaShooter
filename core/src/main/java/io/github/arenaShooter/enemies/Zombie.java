@@ -24,7 +24,7 @@ public class Zombie extends Enemy {
     private float attackTimer = 0f;
 
     public Zombie(float startX, float startY, Main game) {
-        this.textureHeight = textureWidth = 64;
+        this.textureHeight = textureWidth = 67;
         this.hitboxHeight = 27;
         this.hitboxWidth = textureWidth / 2;
         this.hitbox = new Rectangle(startX, startY, hitboxWidth, hitboxHeight);
@@ -106,10 +106,6 @@ public class Zombie extends Enemy {
                 }
                 break;
         }
-
-        if (checkPlayerCollision()) {
-            takeDamage(DAMAGE_ON_CONTACT);
-        };
     }
 
     @Override

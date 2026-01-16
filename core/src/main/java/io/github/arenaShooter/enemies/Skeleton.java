@@ -21,7 +21,6 @@ public class Skeleton extends Enemy {
 
     private float damageTimer = 0f;
 
-    private final int DAMAGE_ON_CONTACT = 5;
     private final float REST_DURATION = 1f;
     private final int MAX_ATTACKS = 3;
     private final Texture bulletTexture = new Texture("bone.png");
@@ -130,10 +129,6 @@ public class Skeleton extends Enemy {
                 }
                 break;
         }
-
-        if (checkPlayerCollision()) {
-            takeDamage(DAMAGE_ON_CONTACT);
-        };
     }
 
     @Override

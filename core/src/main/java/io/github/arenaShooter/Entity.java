@@ -37,19 +37,26 @@ public abstract class Entity {
         }
     }
 
-    public boolean isCollidingWith(Entity other) {
-        if (other == this) return false;
-        return this.hitbox.overlaps(other.hitbox);
+
+    protected boolean canCollideWith(Entity other) {
+        return this.getClass() == other.getClass();
     }
 
+    // collision only between the same entity types
     protected boolean canMove(float newX, float newY, Array<Enemy> enemies) {
         Rectangle futureHitbox = new Rectangle(newX, newY, hitboxWidth, hitboxHeight);
-        for(Enemy e : enemies) {
-            if(e == this) continue;
-            if(e.isAlive() && futureHitbox.overlaps(e.hitbox)) return false;
+
+        for (Enemy e : enemies) {
+            if (e == this) continue;
+            if (!e.isAlive()) continue;
+
+            if (!canCollideWith(e)) continue;
+
+            if (futureHitbox.overlaps(e.hitbox)) return false;
         }
         return true;
     }
+
 
     protected float getHealthBarOffsetY() {
         return 0f;

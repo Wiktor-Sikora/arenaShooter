@@ -48,7 +48,7 @@ public class Player extends Entity {
         this.maxHealth = 100;
         this.health = 100;
 
-        this.speed = 150f;
+        this.speed = 85f;
         this.game = game;
 
         this.weapon = new Gun(game);
@@ -82,7 +82,7 @@ public class Player extends Entity {
             this.weapon.dispose();
         }
         this.weapon = newWeapon;
-        System.out.println("Wybrano bron: " + newWeapon.name);
+        System.out.println("Selected weapon: " + newWeapon.name);
     }
 
 
@@ -223,8 +223,8 @@ public class Player extends Entity {
         // ==========================================
         alive = false;
         System.out.println("=== GAME OVER ===");
-        System.out.println("Osiagnieta fala: " + game.waveNumber);
-        System.out.println("Zdobyte zloto: " + gold);
+        System.out.println("Wave: " + game.waveNumber);
+        System.out.println("Collected gold: " + gold);
         // ==========================================
     }
 }

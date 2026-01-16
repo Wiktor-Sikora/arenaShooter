@@ -27,7 +27,7 @@ public class ShopUI {
     private List<ShopItem> currentItems = new ArrayList<>();
 
     // Tekstury
-    private Texture gunTexture, shotgunTexture, uziTexture, potionTexture, coinTexture, bootTexture;
+    private Texture gunTexture, shotgunTexture, uziTexture, potionTexture, coinTexture, bootTexture, fruitTexture, chipTexture;
 
 
     // CENY
@@ -38,6 +38,10 @@ public class ShopUI {
     public static final int POTION_HEAL = 50;
     public static final int BOOT_PRICE = 300;
     public static final int BOOT_BOOST = 5;
+    public static final int LIFE_FRUIT_PRICE = 300;
+    public static final int LIFE_FRUIT_BOOST = 15;
+    public static final int CHIP_PRICE = 350;
+    public static final int CHIP_BOOST = 5;
 
     // Statystyki
     private int enemiesKilled = 0;
@@ -58,12 +62,18 @@ public class ShopUI {
         potionTexture = loadTexture("potion.png");
         coinTexture = loadTexture("coin.png");
         bootTexture = loadTexture("winged_boot.png");
+        fruitTexture = loadTexture("lifefruit.png");
+        chipTexture = loadTexture("strength_chip.png");
 
-        allItems.add(new ShopItem("MIKSTURA", "+50 HP", POTION_PRICE, potionTexture, false));
-        allItems.add(new ShopItem("PISTOLET", "Podstawowy", GUN_PRICE, gunTexture, false));
-        allItems.add(new ShopItem("SHOTGUN", "Rozrzut", SHOTGUN_PRICE, shotgunTexture, false));
-        allItems.add(new ShopItem("UZI", "Szybki ogien", UZI_PRICE, uziTexture, false));
+
+        allItems.add(new ShopItem("HEALTH POTION", "+50 HP", POTION_PRICE, potionTexture, false));
+        allItems.add(new ShopItem("GUN", "Primary", GUN_PRICE, gunTexture, false));
+        allItems.add(new ShopItem("SHOTGUN", "Spread", SHOTGUN_PRICE, shotgunTexture, false));
+        allItems.add(new ShopItem("UZI", "Fast fire", UZI_PRICE, uziTexture, false));
         allItems.add(new ShopItem("WINGED BOOTS", "+5 Speed", BOOT_PRICE, bootTexture, true));
+        allItems.add(new ShopItem("LIFE FRUIT", "+15 Max HP", LIFE_FRUIT_PRICE, fruitTexture, true));
+        allItems.add(new ShopItem("STRENGTH CHIP", "+5 DMG", LIFE_FRUIT_PRICE, chipTexture, true));
+
     }
 
     private static class ShopItem {
@@ -94,34 +104,37 @@ public class ShopUI {
         Player player = game.player;
 
         if (player.gold < item.price) {
-            System.out.println("Za malo zlota!");
+            System.out.println("Not enough gold!");
             return;
         }
 
         if (item.oncePerWave && item.boughtThisWave) {
-            System.out.println("Ten przedmiot mozna kupic tylko raz na fale!");
+            System.out.println("You can buy only once per wave!");
             return;
         }
 
         switch (item.name) {
 
-            case "PISTOLET":
+            case "GUN":
                 player.equipWeapon(new Gun(game));
+                game.player.weapon.damage += game.player.DMG;
                 break;
 
             case "SHOTGUN":
                 player.gold -= item.price;
                 player.equipWeapon(new Shotgun(game));
+                game.player.weapon.damage += game.player.DMG;
                 break;
 
             case "UZI":
                 player.gold -= item.price;
                 player.equipWeapon(new Uzi(game));
+                game.player.weapon.damage += game.player.DMG;
                 break;
 
-            case "MIKSTURA":
+            case "HEALTH POTION":
                 if (player.health >= player.maxHealth) {
-                    System.out.println("Masz pelne HP!");
+                    System.out.println("You already have full HP!");
                     return;
                 }
                 player.gold -= item.price;
@@ -138,13 +151,24 @@ public class ShopUI {
                     player.gold -= item.price;
                     game.player.speed += BOOT_BOOST;
                 break;
+
+            case "LIFE FRUIT":
+                player.gold -= item.price;
+                game.player.maxHealth += LIFE_FRUIT_BOOST;
+                break;
+
+            case "STRENGTH CHIP":
+                player.gold -= item.price;
+                game.player.DMG += CHIP_BOOST;
+                game.player.weapon.damage += game.player.DMG;
+                break;
         }
 
         if (item.oncePerWave) {
             item.boughtThisWave = true;
         }
 
-        System.out.println("Kupiono: " + item.name);
+        System.out.println("Sold Out: " + item.name);
     }
 
 
@@ -194,12 +218,12 @@ public class ShopUI {
         // --- 2. Nagłówek ---
         font.getData().setScale(3f);
         font.setColor(Color.ORANGE);
-        drawCenteredText("SKLEP - FALA " + game.waveNumber, screenH - 50);
+        drawCenteredText("SHOP - WAVE " + game.waveNumber, screenH - 50);
 
         // Statystyki gracza
         font.getData().setScale(1.5f);
         font.setColor(Color.WHITE);
-        drawCenteredText("Posiadasz: " + game.player.gold + " zl  |  HP: " + (int)game.player.health + "/" + (int)game.player.maxHealth, screenH - 100);
+        drawCenteredText("You have: " + game.player.gold + " G  |  HP: " + (int)game.player.health + "/" + (int)game.player.maxHealth, screenH - 100);
 
         batch.end();
 
@@ -248,12 +272,12 @@ public class ShopUI {
     private void drawTile(int key, ShopItem item, float x, float y, float w, float h) {
         boolean isEquipped = false;
         // Sprawdź czy to aktualna broń
-        if (item.name.equalsIgnoreCase("PISTOLET") && game.player.weapon.name.contains("Pistolet")) isEquipped = true;
+        if (item.name.equalsIgnoreCase("GUN") && game.player.weapon.name.contains("Gun")) isEquipped = true;
         if (item.name.equalsIgnoreCase("UZI") && game.player.weapon.name.contains("Uzi")) isEquipped = true;
         if (item.name.equalsIgnoreCase("SHOTGUN") && game.player.weapon.name.contains("Shotgun")) isEquipped = true;
 
         // Potion nigdy nie jest "equipped", ale sprawdzamy czy HP jest pełne
-        boolean isFullHp = item.name.equalsIgnoreCase("MIKSTURA") && game.player.health >= game.player.maxHealth;
+        boolean isFullHp = item.name.equalsIgnoreCase("HEALTH POTION") && game.player.health >= game.player.maxHealth;
 
         boolean canAfford = game.player.gold >= item.price;
 
@@ -340,15 +364,15 @@ public class ShopUI {
         String priceText;
         if (isEquipped) {
             font.setColor(Color.GREEN);
-            priceText = "WYPOSAZONO";
+            priceText = "EQUIPPED";
         } else if (isFullHp) {
             font.setColor(Color.GRAY);
-            priceText = "PELNE ZDROWIE";
+            priceText = "FULL HP";
         } else if (item.oncePerWave && item.boughtThisWave) {
-            priceText = "KUPIONE";
+            priceText = "SOLD OUT";
         } else if (item.price == 0) {
             font.setColor(Color.GREEN);
-            priceText = "DARMOWE";
+            priceText = "FREE";
         } else {
             font.setColor(canAfford ? Color.GOLD : Color.RED);
             priceText = item.price + "";

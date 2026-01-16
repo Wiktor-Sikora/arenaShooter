@@ -68,10 +68,6 @@ public class Main extends ApplicationAdapter {
         shopUI = new ShopUI(this);  // NOWE: Inicjalizacja ShopUI
 
         enemies = new Array<>();
-//        for (int i = 0; i < 1; i++) {
-//            enemies.add(new Skeleton((float)(Math.random() * PLAYABLE_AREA_SIZE), (float)(Math.random() * PLAYABLE_AREA_SIZE), this));
-//            enemies.add(new Zombie((float)(Math.random() * PLAYABLE_AREA_SIZE), (float)(Math.random() * PLAYABLE_AREA_SIZE), this));
-//        }
 
         bullets = new Array<>();
 
@@ -86,14 +82,14 @@ public class Main extends ApplicationAdapter {
         shopUI.randomizeShop();
         shopUI.resetWavePurchases();
 
-        float multiplier = 1f + (waveNumber - 1) * 0.05f; // +5% per wave
+        float multiplier = 1f + (waveNumber - 1) * 0.1f; // +10% per wave
 
         // NOWE: Reset statystyk fali
         if (shopUI != null) {
             shopUI.resetStats();
         }
 
-        System.out.println("=== FALA " + waveNumber + " ROZPOCZETA ===");
+        System.out.println("=== WAVE " + waveNumber + "===");
         int enemiesToSpawn = 2 + (waveNumber * 2);
 
         for (int i = 0; i < enemiesToSpawn; i++) {
@@ -156,7 +152,7 @@ public class Main extends ApplicationAdapter {
                         shopUI.recordKill();
                         shopUI.recordGold(GOLD_PER_KILL);
                     }
-                    System.out.println("Zloto: " + player.gold);
+                    System.out.println("Gold: " + player.gold);
                     enemies.get(i).dispose();
                     enemies.removeIndex(i);
                     i--;
@@ -167,7 +163,7 @@ public class Main extends ApplicationAdapter {
 
             if (enemies.size == 0) {
                 gameState = GameState.STORE;
-                System.out.println("=== SKLEP ===");
+                System.out.println("=== SHOP ===");
             }
         }
 
@@ -196,6 +192,8 @@ public class Main extends ApplicationAdapter {
 
         camera.position.x = MathUtils.clamp(camera.position.x, quarterWidth, MAP_TEXTURE_SIZE - quarterWidth);
         camera.position.y = MathUtils.clamp(camera.position.y, quarterHeight, MAP_TEXTURE_SIZE - quarterHeight);
+
+        camera.zoom = 0.8f;
 
         camera.update();
         batch.setProjectionMatrix(camera.combined);
