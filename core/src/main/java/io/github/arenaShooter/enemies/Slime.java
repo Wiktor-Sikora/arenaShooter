@@ -7,6 +7,7 @@ import com.badlogic.gdx.graphics.g2d.Animation;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.graphics.g2d.TextureAtlas;
 import com.badlogic.gdx.graphics.g2d.TextureRegion;
+import com.badlogic.gdx.math.MathUtils;
 import com.badlogic.gdx.math.Rectangle;
 import com.badlogic.gdx.math.Vector2;
 import com.badlogic.gdx.utils.Array;
@@ -15,33 +16,32 @@ import io.github.arenaShooter.Main;
 import io.github.arenaShooter.ui.HealthBar;
 
 public class Slime extends Enemy {
-    private int attackCount = 0;
-    private float restTime = 0f;
-    private boolean hasShotThisCycle = false;
-
     private float damageTimer = 0f;
+    private Vector2 attackVelocity;
 
-    private final int DAMAGE_ON_CONTACT = 50;
-    private final float REST_DURATION = 1f;
-    private final int MAX_ATTACKS = 3;
+    private final float REST_DURATION = 0.5f;
+    private final float CHARGING_DURATION = 0.5f;
+    private final float ATTACK_DURATION = 1f;
+    private final float DAMAGE_ON_CHARGE_MULTIPLAYER = 2f;
+
     private final TextureAtlas textureAtlas = new TextureAtlas(Gdx.files.internal("slime.atlas"));
     private final TextureAtlas deathAnimationAtlas = new TextureAtlas(Gdx.files.internal("death.atlas"));
+    protected Animation<TextureRegion> chargeAnimation;
     private final Sound deathSound = Gdx.audio.newSound(Gdx.files.internal("death_sound.mp3"));
 
     public Slime(float startX, float startY, Main game) {
-        this.textureHeight = textureWidth = 64;
+        this.textureHeight = textureWidth = 48;
         this.hitboxHeight = 27;
         this.hitboxWidth = textureWidth / 2;
         this.hitbox = new Rectangle(startX, startY, hitboxWidth, hitboxHeight);
-        this.damage = 20f;
-        this.speed = 90f;
+        this.baseDamage = this.damage = 25f;
+        this.baseSpeed = this.speed = 90f;
         this.maxHealth = this.health = 100;
         this.range = 150f;
-        this.rateOfFire = 8f;
         this.game = game;
 
         Array<TextureRegion> walkFrames = new Array<>();
-        for (int i = 1; i <= 3; i++) {
+        for (int i = 1; i < 3; i++) {
             walkFrames.add(textureAtlas.findRegion("slime_walk_" + i));
         }
         walkAnimation = new Animation<>(0.15f, walkFrames, Animation.PlayMode.LOOP);
@@ -49,6 +49,11 @@ public class Slime extends Enemy {
         Array<TextureRegion> attackFrames = new Array<>();
         attackFrames.add(textureAtlas.findRegion("slime_attack"));
         attackAnimation = new Animation<>(0.15f, attackFrames, Animation.PlayMode.NORMAL);
+
+        Array<TextureRegion> chargeFrames = new Array<>();
+        chargeFrames.add(textureAtlas.findRegion("slime_attack"));
+        chargeFrames.add(textureAtlas.findRegion("slime_walk_1"));
+        chargeAnimation = new Animation<>(0.15f, chargeFrames, Animation.PlayMode.LOOP);
 
         Array<TextureRegion> deathFrames = new Array<>();
         for (int i = 0; i < 47; i++) {
@@ -76,44 +81,39 @@ public class Slime extends Enemy {
                 if (distanceToPlayer > range) {
                     stepTowardsPlayer(delta, dx, dy, distanceToPlayer);
                 } else {
-                    state = State.ATTACK;
+                    state = State.CHARGING;
+
                     stateTime = 0f;
-                    hasShotThisCycle = false;
+                }
+                break;
+
+            case CHARGING:
+                stateTime += delta;
+
+                if (stateTime >= CHARGING_DURATION) {
+                    stateTime = 0f;
+                    state = State.ATTACK;
+                    this.attackVelocity = new Vector2(dx + game.player.hitbox.getWidth() / 2 , dy + game.player.hitbox.getWidth() / 2).nor().scl(speed * 3);
                 }
                 break;
 
             case ATTACK:
-                //onetime animation
-                float attackX = hitbox.x;
-                float attackY = hitbox.y;
-                hitbox.x = attackX;
-                hitbox.y = attackY;
-
-                if(!hasShotThisCycle && stateTime >= attackAnimation.getFrameDuration()) {
-                    shoot(game.player.getCenterX(), game.player.getCenterY());
-                    attackCount++;
-                    hasShotThisCycle = true;
+                if (stateTime >= ATTACK_DURATION) {
+                    stateTime = 0f;
+                    state = State.IDLE;
+                } else {
+                    hitbox.x += attackVelocity.x * delta;
+                    hitbox.y += attackVelocity.y * delta;
+                    hitbox.setX(MathUtils.clamp(hitbox.getX(), game.AREA_OFFSET, game.PLAYABLE_AREA_SIZE - game.AREA_OFFSET + 100f));
+                    hitbox.setY(MathUtils.clamp(hitbox.getY(), game.AREA_OFFSET, game.PLAYABLE_AREA_SIZE - game.AREA_OFFSET + 100f));
                 }
 
-                if(attackAnimation.isAnimationFinished(stateTime)) {
-                    if(attackCount >= MAX_ATTACKS) {
-                        state = State.IDLE;
-                        restTime = 0f;
-                        stateTime = 0f;
-                    } else {
-                        state = State.WALK;
-                        stateTime = 0f;
-                    }
-                }
                 break;
 
             case IDLE:
-                restTime += delta;
-                if (restTime >= REST_DURATION) {
-                    attackCount = 0;
-                    restTime = 0f;
-                    state = State.WALK;
+                if (stateTime >= REST_DURATION) {
                     stateTime = 0f;
+                    state = State.WALK;
                 }
                 break;
 
@@ -124,9 +124,17 @@ public class Slime extends Enemy {
                 break;
         }
 
-        if (checkPlayerCollision()) {
-            takeDamage(DAMAGE_ON_CONTACT);
-        };
+        if (checkPlayerCollision() && damageTimer >= 1f) {
+            damageTimer = 0f;
+
+            if (state == State.CHARGING) {
+                game.player.takeDamage(DAMAGE_ON_CHARGE_MULTIPLAYER * damage);
+            } else if (state != State.DEAD) {
+                game.player.takeDamage(damage);
+            }
+        } else {
+            damageTimer += delta;
+        }
     }
 
     @Override
@@ -141,6 +149,9 @@ public class Slime extends Enemy {
                 break;
             case WALK:
                 currentFrame = walkAnimation.getKeyFrame(stateTime, true);
+                break;
+            case CHARGING:
+                currentFrame = chargeAnimation.getKeyFrame(stateTime, true);
                 break;
             case DEAD:
                 currentFrame = deathAnimation.getKeyFrame(stateTime, false);
@@ -173,7 +184,7 @@ public class Slime extends Enemy {
 
     @Override
     protected float getHealthBarOffsetY() {
-        return textureHeight / 4f;
+        return textureHeight / 10f;
     }
 
     @Override

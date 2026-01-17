@@ -14,7 +14,6 @@ import io.github.arenaShooter.ui.HealthBar;
 
 
 public class Zombie extends Enemy {
-
     private final int DAMAGE_ON_CONTACT = 0;
     private final TextureAtlas textureAtlas = new TextureAtlas(Gdx.files.internal("zombie.atlas"));
     private final TextureAtlas deathAnimationAtlas = new TextureAtlas(Gdx.files.internal("death.atlas"));

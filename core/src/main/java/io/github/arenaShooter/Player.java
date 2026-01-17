@@ -192,9 +192,6 @@ public class Player extends Entity {
         }
     }
 
-    // ==========================================
-    // ZMIANA - Nadpisana metoda takeDamage do rejestracji statystyk
-    // ==========================================
     @Override
     public void takeDamage(float amount) {
         if (health <= 0) return;
@@ -206,7 +203,6 @@ public class Player extends Entity {
             kill();
         }
     }
-    // ==========================================
 
     public void dispose() {
         super.dispose();

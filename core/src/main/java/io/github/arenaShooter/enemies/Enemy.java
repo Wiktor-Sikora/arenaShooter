@@ -13,6 +13,7 @@ public abstract class Enemy extends Entity {
         ATTACK,
         IDLE,
         DEAD,
+        CHARGING,
         ALL_ACTIONS_FINISHED
     }
     protected State state = State.WALK;

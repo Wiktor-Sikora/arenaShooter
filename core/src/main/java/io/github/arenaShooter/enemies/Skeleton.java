@@ -90,11 +90,6 @@ public class Skeleton extends Enemy {
 
             case ATTACK:
                 //onetime animation
-                float attackX = hitbox.x;
-                float attackY = hitbox.y;
-                hitbox.x = attackX;
-                hitbox.y = attackY;
-
                 if(!hasShotThisCycle && stateTime >= attackAnimation.getFrameDuration()) {
                     shoot(game.player.getCenterX(), game.player.getCenterY());
                     attackCount++;

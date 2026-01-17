@@ -14,6 +14,7 @@ import com.badlogic.gdx.graphics.OrthographicCamera;
 import com.badlogic.gdx.utils.viewport.ScreenViewport;
 import io.github.arenaShooter.enemies.Enemy;
 import io.github.arenaShooter.enemies.Skeleton;
+import io.github.arenaShooter.enemies.Slime;
 import io.github.arenaShooter.enemies.Zombie;
 import io.github.arenaShooter.ui.playerHud;
 import io.github.arenaShooter.ui.ShopUI;
@@ -90,7 +91,8 @@ public class Main extends ApplicationAdapter {
 
         final List<java.util.function.Supplier<Enemy>> enemyFactory = List.of(
             () -> new Skeleton(0, 0, this),
-            () -> new Zombie(0, 0, this)
+            () -> new Zombie(0, 0, this),
+            () -> new Slime(0, 0, this)
         );
 
         float multiplier = 1f + (waveNumber - 1) * 0.1f; // +10% per wave
