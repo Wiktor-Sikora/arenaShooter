@@ -1,0 +1,14 @@
+slime.png
+size: 64, 16
+format: RGBA8888
+filter: Linear, Linear
+repeat: none
+pma: false
+slime_attack
+  bounds: 0, 0, 16, 16
+slime_walk_0
+  bounds: 16, 0, 16, 16
+slime_walk_1
+  bounds: 32, 0, 16, 16
+slime_walk_2
+  bounds: 48, 0, 16, 16

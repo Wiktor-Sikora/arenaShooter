@@ -22,6 +22,10 @@ import io.github.arenaShooter.weapons.Gun;
 import io.github.arenaShooter.weapons.Shotgun;
 import io.github.arenaShooter.weapons.Uzi;
 
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Random;
+
 public class Main extends ApplicationAdapter {
     public enum GameState {
         PLAYING,
@@ -62,7 +66,7 @@ public class Main extends ApplicationAdapter {
 
         map = new Texture("map.png");
 
-        player = new Player(500f, 500f, this);
+        player = new Player(AREA_OFFSET + PLAYABLE_AREA_SIZE / 2, AREA_OFFSET + PLAYABLE_AREA_SIZE / 2, this);
 
         playerHud = new playerHud(this);
         shopUI = new ShopUI(this);  // NOWE: Inicjalizacja ShopUI
@@ -77,10 +81,17 @@ public class Main extends ApplicationAdapter {
     }
 
     private void startNextWave() {
+        final Random rand = new Random();
+
         waveNumber++;
         gameState = GameState.PLAYING;
         shopUI.randomizeShop();
         shopUI.resetWavePurchases();
+
+        final List<java.util.function.Supplier<Enemy>> enemyFactory = List.of(
+            () -> new Skeleton(0, 0, this),
+            () -> new Zombie(0, 0, this)
+        );
 
         float multiplier = 1f + (waveNumber - 1) * 0.1f; // +10% per wave
 
@@ -93,17 +104,11 @@ public class Main extends ApplicationAdapter {
         int enemiesToSpawn = 2 + (waveNumber * 2);
 
         for (int i = 0; i < enemiesToSpawn; i++) {
-            float x = (float)(Math.random() * 501);
-            float y = (float)(Math.random() * 501);
+            float x = (float)(AREA_OFFSET + Math.random() * PLAYABLE_AREA_SIZE);
+            float y = (float)(AREA_OFFSET + Math.random() * PLAYABLE_AREA_SIZE);
 
-            Enemy enemy;
-
-            if (Math.random() > 0.5) {
-                enemy = new Skeleton(x, y, this);
-            } else {
-                enemy = new Zombie(x, y, this);
-            }
-
+            Enemy enemy = enemyFactory.get(rand.nextInt(enemyFactory.size())).get();
+            enemy.hitbox.setPosition(x, y);
             enemy.speed = enemy.baseSpeed * multiplier;
             enemy.damage = enemy.baseDamage * multiplier;
 
