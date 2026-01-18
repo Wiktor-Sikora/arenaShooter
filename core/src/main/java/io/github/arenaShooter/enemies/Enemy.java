@@ -6,7 +6,6 @@ import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.graphics.g2d.TextureRegion;
 import io.github.arenaShooter.Entity;
 
-
 public abstract class Enemy extends Entity {
     public enum State {
         WALK,

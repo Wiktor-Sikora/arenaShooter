@@ -3,6 +3,8 @@ package io.github.arenaShooter;
 import com.badlogic.gdx.ApplicationAdapter;
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.Input;
+import com.badlogic.gdx.graphics.g2d.BitmapFont;
+import com.badlogic.gdx.graphics.g2d.GlyphLayout;
 import com.badlogic.gdx.scenes.scene2d.Stage;
 import com.badlogic.gdx.utils.Array;
 import com.badlogic.gdx.graphics.Color;
@@ -16,20 +18,17 @@ import io.github.arenaShooter.enemies.Enemy;
 import io.github.arenaShooter.enemies.Skeleton;
 import io.github.arenaShooter.enemies.Slime;
 import io.github.arenaShooter.enemies.Zombie;
-import io.github.arenaShooter.ui.playerHud;
+import io.github.arenaShooter.ui.PlayerHud;
 import io.github.arenaShooter.ui.ShopUI;
 import io.github.arenaShooter.weapons.Bullet;
-import io.github.arenaShooter.weapons.Gun;
-import io.github.arenaShooter.weapons.Shotgun;
-import io.github.arenaShooter.weapons.Uzi;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
 
 public class Main extends ApplicationAdapter {
     public enum GameState {
         PLAYING,
+        DEAD,
         STORE
     }
     public GameState gameState = GameState.PLAYING;
@@ -39,6 +38,8 @@ public class Main extends ApplicationAdapter {
     public ScreenViewport viewport;
     private Texture map;
     public Stage stage;
+    private BitmapFont font;
+    private GlyphLayout layout;
 
     private final float MAP_TEXTURE_SIZE = 1500;
     public final float PLAYABLE_AREA_SIZE = 1400;
@@ -47,12 +48,11 @@ public class Main extends ApplicationAdapter {
     float WORLD_WIDTH = 1500f;
     float WORLD_HEIGHT = 1500f;
 
-    // NOWE: Stala ilosci zlota za zabicie
     private static final int GOLD_PER_KILL = 30;
 
     public Player player;
-    public playerHud playerHud;
-    public ShopUI shopUI;  // NOWE: Referencja do ShopUI
+    public PlayerHud playerHud;
+    public ShopUI shopUI;
     public Array<Enemy> enemies;
     public Array<Bullet> bullets;
 
@@ -63,14 +63,16 @@ public class Main extends ApplicationAdapter {
         viewport = new ScreenViewport(camera);
         viewport.setUnitsPerPixel(1f);
         stage = new Stage(viewport);
+        font = new BitmapFont();
+        layout = new GlyphLayout();
         Gdx.input.setInputProcessor(stage);
 
         map = new Texture("map.png");
 
         player = new Player(AREA_OFFSET + PLAYABLE_AREA_SIZE / 2, AREA_OFFSET + PLAYABLE_AREA_SIZE / 2, this);
 
-        playerHud = new playerHud(this);
-        shopUI = new ShopUI(this);  // NOWE: Inicjalizacja ShopUI
+        playerHud = new PlayerHud(this);
+        shopUI = new ShopUI(this);
 
         enemies = new Array<>();
 
@@ -79,43 +81,6 @@ public class Main extends ApplicationAdapter {
         camera.position.set(player.getCenterX(), player.getCenterY(), 0);
 
         startNextWave();
-    }
-
-    private void startNextWave() {
-        final Random rand = new Random();
-
-        waveNumber++;
-        gameState = GameState.PLAYING;
-        shopUI.randomizeShop();
-        shopUI.resetWavePurchases();
-
-        final List<java.util.function.Supplier<Enemy>> enemyFactory = List.of(
-            () -> new Skeleton(0, 0, this),
-            () -> new Zombie(0, 0, this),
-            () -> new Slime(0, 0, this)
-        );
-
-        float multiplier = 1f + (waveNumber - 1) * 0.1f; // +10% per wave
-
-        // NOWE: Reset statystyk fali
-        if (shopUI != null) {
-            shopUI.resetStats();
-        }
-
-        System.out.println("=== WAVE " + waveNumber + "===");
-        int enemiesToSpawn = 2 + (waveNumber * 2);
-
-        for (int i = 0; i < enemiesToSpawn; i++) {
-            float x = (float)(AREA_OFFSET + Math.random() * PLAYABLE_AREA_SIZE);
-            float y = (float)(AREA_OFFSET + Math.random() * PLAYABLE_AREA_SIZE);
-
-            Enemy enemy = enemyFactory.get(rand.nextInt(enemyFactory.size())).get();
-            enemy.hitbox.setPosition(x, y);
-            enemy.speed = enemy.baseSpeed * multiplier;
-            enemy.damage = enemy.baseDamage * multiplier;
-
-            enemies.add(enemy);
-        }
     }
 
     @Override
@@ -131,7 +96,9 @@ public class Main extends ApplicationAdapter {
         if (gameState == GameState.PLAYING) {
             player.handleInput(delta);
             return;
-        }else if (gameState == GameState.STORE) {
+        } else if (gameState == GameState.DEAD) {
+
+        } else if (gameState == GameState.STORE) {
 
             if (Gdx.input.isKeyJustPressed(Input.Keys.ENTER)) {
                 startNextWave();
@@ -151,15 +118,22 @@ public class Main extends ApplicationAdapter {
         if (gameState == GameState.PLAYING) {
             player.update(delta);
 
+            if (player.health <= 0) {
+                player.healthBar.dispose();
+                player.dispose();
+
+                gameState = GameState.DEAD;
+            }
+
             for (int i = 0; i < enemies.size; i++) {
                 if (enemies.get(i).isDisposable()) {
-                    // NOWE: Zloto 30 za zabicie + statystyki
                     player.gold += GOLD_PER_KILL;
+
                     if (shopUI != null) {
                         shopUI.recordKill();
                         shopUI.recordGold(GOLD_PER_KILL);
                     }
-                    System.out.println("Gold: " + player.gold);
+
                     enemies.get(i).dispose();
                     enemies.removeIndex(i);
                     i--;
@@ -170,18 +144,19 @@ public class Main extends ApplicationAdapter {
 
             if (enemies.size == 0) {
                 gameState = GameState.STORE;
-                System.out.println("=== SHOP ===");
             }
-        }
 
-        for (int i = 0; i < bullets.size; i++) {
-            if (bullets.get(i).isExpired()) {
-                bullets.get(i).dispose();
-                bullets.removeIndex(i);
-                i--;
-            } else {
-                bullets.get(i).update(delta);
+            for (int i = 0; i < bullets.size; i++) {
+                if (bullets.get(i).isExpired()) {
+                    bullets.get(i).dispose();
+                    bullets.removeIndex(i);
+                    i--;
+                } else {
+                    bullets.get(i).update(delta);
+                }
             }
+        } else if (gameState == GameState.DEAD) {
+
         }
     }
 
@@ -208,26 +183,41 @@ public class Main extends ApplicationAdapter {
         batch.begin();
         batch.draw(map, 0, 0, MAP_TEXTURE_SIZE, MAP_TEXTURE_SIZE);
 
-        player.render(batch);
 
-        for (int i = 0; i < enemies.size; i++) {
-            enemies.get(i).render(batch);
-        }
+        if (gameState == GameState.PLAYING) {
+            player.render(batch);
+            for (int i = 0; i < enemies.size; i++) {
+                enemies.get(i).render(batch);
+            }
 
-        for (int i = 0; i < bullets.size; i++) {
-            bullets.get(i).render(batch);
-        }
+            for (int i = 0; i < bullets.size; i++) {
+                bullets.get(i).render(batch);
+            }
 
-        batch.end();
-
-        // NOWE: Renderowanie sklepu gdy gracz jest w stanie STORE
-        if (gameState == GameState.STORE && shopUI != null) {
+            batch.end();
+            stage.draw();
+            playerHud.render();
+        } else if (gameState == GameState.STORE && shopUI != null) {
+            player.render(batch);
+            batch.end();
             stage.draw();
             playerHud.render();
             shopUI.render();
-        } else {
+        } else if (gameState == GameState.DEAD) {
+            for (int i = 0; i < enemies.size; i++) {
+                enemies.get(i).render(batch);
+            }
+
+            for (int i = 0; i < bullets.size; i++) {
+                bullets.get(i).render(batch);
+            }
+
+            drawCenteredText("You are dead", camera.position.y / 2f - layout.height, 5f);
+            drawCenteredText("Press [Enter] to restart", (camera.position.y - layout.height) / 2f + 50, 1f);
+//            drawCenteredText("Press [Esc] to quit", Gdx.graphics.getHeight() / 2f + 70f, 1f);
+
+            batch.end();
             stage.draw();
-            playerHud.render();
         }
     }
 
@@ -244,7 +234,6 @@ public class Main extends ApplicationAdapter {
         map.dispose();
         stage.dispose();
 
-        // NOWE: Dispose ShopUI
         if (shopUI != null) {
             shopUI.dispose();
         }
@@ -260,5 +249,47 @@ public class Main extends ApplicationAdapter {
 
     public void addBullet(Bullet bullet) {
         bullets.add(bullet);
+    }
+
+    private void startNextWave() {
+        final Random rand = new Random();
+
+        waveNumber++;
+        gameState = GameState.PLAYING;
+        shopUI.randomizeShop();
+        shopUI.resetWavePurchases();
+
+        final List<java.util.function.Supplier<Enemy>> enemyFactory = List.of(
+            () -> new Skeleton(0, 0, this),
+            () -> new Zombie(0, 0, this),
+            () -> new Slime(0, 0, this)
+        );
+
+        float multiplier = 1f + (waveNumber - 1) * 0.1f; // +10% per wave
+
+        // NOWE: Reset statystyk fali
+        if (shopUI != null) {
+            shopUI.resetStats();
+        }
+
+        int enemiesToSpawn = 2 + (waveNumber * 2);
+
+        for (int i = 0; i < enemiesToSpawn; i++) {
+            float x = (float)(AREA_OFFSET + Math.random() * PLAYABLE_AREA_SIZE);
+            float y = (float)(AREA_OFFSET + Math.random() * PLAYABLE_AREA_SIZE);
+
+            Enemy enemy = enemyFactory.get(rand.nextInt(enemyFactory.size())).get();
+            enemy.hitbox.setPosition(x, y);
+            enemy.speed = enemy.baseSpeed * multiplier;
+            enemy.damage = enemy.baseDamage * multiplier;
+
+            enemies.add(enemy);
+        }
+    }
+
+    private void drawCenteredText(String text, float y, float scale) {
+        font.getData().setScale(scale);
+        layout.setText(font, text);
+        font.draw(batch, text, camera.position.x - layout.width / 2f, y);
     }
 }

@@ -17,7 +17,7 @@ import java.util.Objects;
  * ============================================
  * Wyświetla: złoto, HP, broń, numer fali
  */
-public class playerHud {
+public class PlayerHud {
     protected Main game;
 
     private SpriteBatch batch;
@@ -31,7 +31,7 @@ public class playerHud {
     private static final Color HP_GREEN = new Color(0.2f, 0.8f, 0.2f, 1f);
     private static final Color HP_RED = new Color(0.9f, 0.2f, 0.2f, 1f);
 
-    public playerHud(Main game) {
+    public PlayerHud(Main game) {
         this.game = game;
 
         batch = new SpriteBatch();
