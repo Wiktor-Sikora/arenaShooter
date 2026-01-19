@@ -22,6 +22,9 @@ import io.github.arenaShooter.ui.PlayerHud;
 import io.github.arenaShooter.ui.ShopUI;
 import io.github.arenaShooter.weapons.Bullet;
 
+import java.lang.Math;
+import java.io.*;
+import java.util.Dictionary;
 import java.util.List;
 import java.util.Random;
 
@@ -50,11 +53,20 @@ public class Main extends ApplicationAdapter {
 
     private static final int GOLD_PER_KILL = 30;
 
+    private final String SCORE_FILE_NAME = "score.txt";
+
     public Player player;
     public PlayerHud playerHud;
     public ShopUI shopUI;
     public Array<Enemy> enemies;
     public Array<Bullet> bullets;
+
+    public class HighScores {
+        public int goldEarned;
+        public int enemiesKilled;
+        public int damageTaken;
+    };
+    HighScores scores;
 
     @Override
     public void create() {
@@ -123,6 +135,11 @@ public class Main extends ApplicationAdapter {
                 player.dispose();
 
                 gameState = GameState.DEAD;
+                try {
+                    this.saveScore();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
             }
 
             for (int i = 0; i < enemies.size; i++) {
@@ -291,5 +308,29 @@ public class Main extends ApplicationAdapter {
         font.getData().setScale(scale);
         layout.setText(font, text);
         font.draw(batch, text, camera.position.x - layout.width / 2f, y);
+    }
+
+    private void saveScore() throws IOException {
+        BufferedWriter writer = new BufferedWriter(new FileWriter(SCORE_FILE_NAME));
+        loadScore();
+
+
+        writer.write(String.format("%d;", Math.max(shopUI.getGoldEarned(), scores.goldEarned)));
+
+        writer.close();
+    }
+
+    private void loadScore() {
+        try {
+            BufferedReader reader = new BufferedReader(new FileReader(SCORE_FILE_NAME));
+            String currentLine = reader.readLine();
+            reader.close();
+
+            String[] values = currentLine.split(";");
+            scores.goldEarned = Integer.parseInt(values[0]);
+            scores.enemiesKilled = Integer.parseInt(values[1]);
+            scores.damageTaken = Integer.parseInt(values[2]);
+        } catch (IOException e) {
+        }
     }
 }

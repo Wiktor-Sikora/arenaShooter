@@ -75,6 +75,18 @@ public class ShopUI {
 
     }
 
+    public int getEnemiesKilled() {
+        return enemiesKilled;
+    }
+
+    public int getGoldEarned() {
+        return goldEarned;
+    }
+
+    public int getDamageTaken() {
+        return damageTaken;
+    }
+
     private static class ShopItem {
         String name;
         String desc;
