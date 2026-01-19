@@ -29,7 +29,6 @@ public class ShopUI {
     // Tekstury
     private Texture gunTexture, shotgunTexture, uziTexture, potionTexture, coinTexture, bootTexture, fruitTexture, chipTexture;
 
-
     // CENY
     public static final int GUN_PRICE = 0;
     public static final int SHOTGUN_PRICE = 200;
@@ -201,16 +200,15 @@ public class ShopUI {
     }
 
     public void render() {
-        float screenW = Gdx.graphics.getWidth();
-        float screenH = Gdx.graphics.getHeight()+80;
-        float centerX = screenW / 2;
+        float screenH = Gdx.graphics.getHeight() + 80;
+        float centerX = Gdx.graphics.getWidth() / 2f;
         float centerY = screenH / 2;
 
         // --- 1. Przyciemnienie tła ---
         Gdx.gl.glEnable(Gdx.gl.GL_BLEND);
         shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
         shapeRenderer.setColor(0, 0, 0, 0.65f);
-        shapeRenderer.rect(0, 0, screenW, screenH);
+        shapeRenderer.rect(0, 0, Gdx.graphics.getWidth(), screenH);
         shapeRenderer.end();
 
         batch.begin();
@@ -276,7 +274,6 @@ public class ShopUI {
         if (item.name.equalsIgnoreCase("UZI") && game.player.weapon.name.contains("Uzi")) isEquipped = true;
         if (item.name.equalsIgnoreCase("SHOTGUN") && game.player.weapon.name.contains("Shotgun")) isEquipped = true;
 
-        // Potion nigdy nie jest "equipped", ale sprawdzamy czy HP jest pełne
         boolean isFullHp = item.name.equalsIgnoreCase("HEALTH POTION") && game.player.health >= game.player.maxHealth;
 
         boolean canAfford = game.player.gold >= item.price;

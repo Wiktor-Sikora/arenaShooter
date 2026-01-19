@@ -126,10 +126,10 @@ public class Player extends Entity {
     public void update(float delta) {
         stateTime += delta;
 
-        //movement and direction
+        // movement and direction
         handleInput(delta);
 
-        //player does not exceed the border of the map
+        // player does not exceed the border of the map
         hitbox.setX(MathUtils.clamp(hitbox.getX(), game.AREA_OFFSET, game.PLAYABLE_AREA_SIZE - game.AREA_OFFSET + 100f));
         hitbox.setY(MathUtils.clamp(hitbox.getY(), game.AREA_OFFSET, game.PLAYABLE_AREA_SIZE - game.AREA_OFFSET + 100f));
     }
