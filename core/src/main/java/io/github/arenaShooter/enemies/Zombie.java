@@ -14,6 +14,7 @@ import io.github.arenaShooter.ui.HealthBar;
 
 
 public class Zombie extends Enemy {
+    private float damageTimer = 0f;
     private final int DAMAGE_ON_CONTACT = 0;
     private final TextureAtlas textureAtlas = new TextureAtlas(Gdx.files.internal("zombie.atlas"));
     private final TextureAtlas deathAnimationAtlas = new TextureAtlas(Gdx.files.internal("death.atlas"));
@@ -32,7 +33,7 @@ public class Zombie extends Enemy {
         this.baseDamage = 30f;
         this.damage = 30f;
         this.maxHealth = this.health = 100;
-        this.range = 16f;
+        this.range = 60f;
         this.rateOfFire = 1f;
         this.game = game;
 
@@ -85,7 +86,7 @@ public class Zombie extends Enemy {
                 int frameIndex = attackAnimation.getKeyFrameIndex(stateTime);
 
                 if (frameIndex == 1 && !hasDealtDamageThisAttack) {
-                    if (checkPlayerCollision()) {
+                    if (distanceToPlayer <= range) {
                         game.player.takeDamage(this.damage);
                     }
                     hasDealtDamageThisAttack = true;
