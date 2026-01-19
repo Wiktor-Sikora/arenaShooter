@@ -119,7 +119,8 @@ public class Main extends ApplicationAdapter {
                 return;
             }
         } else if (gameState == GameState.DEAD) {
-
+            if (Gdx.input.isKeyJustPressed(Input.Keys.ENTER)) restartGame();
+            if (Gdx.input.isKeyJustPressed(Input.Keys.ESCAPE)) Gdx.app.exit();
         } else if (gameState == GameState.STORE) {
 
             if (Gdx.input.isKeyJustPressed(Input.Keys.ENTER)) {
@@ -368,5 +369,27 @@ public class Main extends ApplicationAdapter {
             scores.damageTaken = Integer.parseInt(values[2]);
         } catch (IOException e) {
         }
+    }
+
+    private void restartGame() {
+        player.dispose();
+        player = new Player(AREA_OFFSET + PLAYABLE_AREA_SIZE / 2, AREA_OFFSET + PLAYABLE_AREA_SIZE / 2, this);
+        shopUI.dispose();
+        shopUI = new ShopUI(this);
+        waveNumber = 0;
+
+        for (int i = 0; i < bullets.size; i++) {
+            bullets.get(i).dispose();
+            bullets.removeIndex(i);
+            i--;
+        }
+
+        for (int i = 0; i < enemies.size; i++) {
+            enemies.get(i).dispose();
+            enemies.removeIndex(i);
+            i--;
+        }
+
+        startNextWave();
     }
 }
