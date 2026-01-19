@@ -66,7 +66,7 @@ public class Main extends ApplicationAdapter {
         public int enemiesKilled;
         public int damageTaken;
     };
-    HighScores scores;
+    HighScores scores = new HighScores();
 
     @Override
     public void create() {
@@ -316,6 +316,8 @@ public class Main extends ApplicationAdapter {
 
 
         writer.write(String.format("%d;", Math.max(shopUI.getGoldEarned(), scores.goldEarned)));
+        writer.write(String.format("%d;", Math.max(shopUI.getEnemiesKilled(), scores.enemiesKilled)));
+        writer.write(String.format("%d", Math.max(shopUI.getDamageTaken(), scores.damageTaken)));
 
         writer.close();
     }
@@ -326,7 +328,14 @@ public class Main extends ApplicationAdapter {
             String currentLine = reader.readLine();
             reader.close();
 
+            if (currentLine == null) {
+                scores.goldEarned = 0;
+                scores.enemiesKilled = 0;
+                scores.damageTaken = 0;
+                return;
+            };
             String[] values = currentLine.split(";");
+
             scores.goldEarned = Integer.parseInt(values[0]);
             scores.enemiesKilled = Integer.parseInt(values[1]);
             scores.damageTaken = Integer.parseInt(values[2]);
