@@ -150,6 +150,7 @@ public class Main extends ApplicationAdapter {
 
                 gameState = GameState.DEAD;
                 try {
+                    this.loadScore();
                     this.saveScore();
                 } catch (IOException e) {
                     e.printStackTrace();
@@ -162,6 +163,8 @@ public class Main extends ApplicationAdapter {
 
                     if (shopUI != null) {
                         shopUI.recordKill();
+                        player.goldEarned += GOLD_PER_KILL;
+                        player.enemiesKilled++;
                         shopUI.recordGold(GOLD_PER_KILL);
                     }
 
@@ -255,11 +258,13 @@ public class Main extends ApplicationAdapter {
             drawCenteredText("Press [Enter] to restart", centerY - 55, 1.2f);
             drawCenteredText("Press [Esc] to quit", centerY - 75, 1.2f);
 
+            drawCenteredText(String.format("Gold earned: %d / %d", player.goldEarned, scores.goldEarned), centerY - 110, 1.2f);
+            drawCenteredText(String.format("Enemies killed: %d / %d", player.enemiesKilled, scores.enemiesKilled), centerY - 130, 1.2f);
+            drawCenteredText(String.format("Damage taken: %d / %d", player.dmgTaken, scores.damageTaken), centerY - 150, 1.2f);
+
             batch.end();
             stage.draw();
         }
-
-
     }
 
     @Override
@@ -336,12 +341,10 @@ public class Main extends ApplicationAdapter {
 
     private void saveScore() throws IOException {
         BufferedWriter writer = new BufferedWriter(new FileWriter(SCORE_FILE_NAME));
-        loadScore();
 
-
-        writer.write(String.format("%d;", Math.max(shopUI.getGoldEarned(), scores.goldEarned)));
-        writer.write(String.format("%d;", Math.max(shopUI.getEnemiesKilled(), scores.enemiesKilled)));
-        writer.write(String.format("%d", Math.max(shopUI.getDamageTaken(), scores.damageTaken)));
+        writer.write(String.format("%d;", Math.max(player.goldEarned, scores.goldEarned)));
+        writer.write(String.format("%d;", Math.max(player.enemiesKilled, scores.enemiesKilled)));
+        writer.write(String.format("%d", Math.max(player.dmgTaken, scores.damageTaken)));
 
         writer.close();
     }
