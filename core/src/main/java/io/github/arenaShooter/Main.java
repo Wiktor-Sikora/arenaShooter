@@ -356,7 +356,7 @@ public class Main extends ApplicationAdapter {
                 y = (float)(AREA_OFFSET + Math.random() * PLAYABLE_AREA_SIZE);
                 float dx = player.hitbox.getX() - x;
                 float dy = player.hitbox.getY() - y;
-                distanceToPlayer = distanceToPlayer = (float) Math.sqrt(dx * dx + dy * dy);
+                distanceToPlayer = (float) Math.sqrt(dx * dx + dy * dy);
             }
 
             Enemy enemy = enemyFactory.get(rand.nextInt(enemyFactory.size())).get();
