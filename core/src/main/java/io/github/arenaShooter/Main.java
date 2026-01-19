@@ -31,6 +31,7 @@ import java.util.Random;
 public class Main extends ApplicationAdapter {
     public enum GameState {
         PLAYING,
+        PAUSED,
         DEAD,
         STORE
     }
@@ -101,6 +102,10 @@ public class Main extends ApplicationAdapter {
         if (gameState == GameState.PLAYING) {
             player.handleInput(delta);
             return;
+        } else if (gameState == GameState.PAUSED) {
+            if (Gdx.input.isButtonJustPressed(Input.Keys.ESCAPE)) {
+                return;
+            }
         } else if (gameState == GameState.DEAD) {
 
         } else if (gameState == GameState.STORE) {
@@ -128,7 +133,7 @@ public class Main extends ApplicationAdapter {
                 player.dispose();
 
                 for (int i=0; i<enemies.size; i++ ) {
-
+                    enemies.get(i).healthBar.dispose();
                 }
 
                 gameState = GameState.DEAD;
@@ -227,15 +232,17 @@ public class Main extends ApplicationAdapter {
             float centerY = camera.position.y;
 
             font.setColor(Color.RED);
-            drawCenteredText("You are dead", centerY + 14, 5f);
+            drawCenteredText("You are dead", centerY + 10, 5f);
 
-            font.setColor(Color.WHITE);
-            drawCenteredText("Press [Enter] to restart", centerY - 50, 1.2f);
-            drawCenteredText("Press [Esc] to quit", centerY - 70, 1.2f);
+            font.setColor(Color.LIGHT_GRAY);
+            drawCenteredText("Press [Enter] to restart", centerY - 55, 1.2f);
+            drawCenteredText("Press [Esc] to quit", centerY - 75, 1.2f);
 
             batch.end();
             stage.draw();
         }
+
+
     }
 
     @Override
