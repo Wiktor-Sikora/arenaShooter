@@ -348,8 +348,16 @@ public class Main extends ApplicationAdapter {
         int enemiesToSpawn = 2 + (waveNumber * 2);
 
         for (int i = 0; i < enemiesToSpawn; i++) {
-            float x = (float)(AREA_OFFSET + Math.random() * PLAYABLE_AREA_SIZE);
-            float y = (float)(AREA_OFFSET + Math.random() * PLAYABLE_AREA_SIZE);
+            float distanceToPlayer = 0;
+            float x = 0;
+            float y = 0;
+            while (distanceToPlayer < 500) {
+                x = (float)(AREA_OFFSET + Math.random() * PLAYABLE_AREA_SIZE);
+                y = (float)(AREA_OFFSET + Math.random() * PLAYABLE_AREA_SIZE);
+                float dx = player.hitbox.getX() - x;
+                float dy = player.hitbox.getY() - y;
+                distanceToPlayer = distanceToPlayer = (float) Math.sqrt(dx * dx + dy * dy);
+            }
 
             Enemy enemy = enemyFactory.get(rand.nextInt(enemyFactory.size())).get();
             enemy.hitbox.setPosition(x, y);
