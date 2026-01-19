@@ -115,12 +115,10 @@ public class ShopUI {
         Player player = game.player;
 
         if (player.gold < item.price) {
-            System.out.println("Not enough gold!");
             return;
         }
 
         if (item.oncePerWave && item.boughtThisWave) {
-            System.out.println("You can buy only once per wave!");
             return;
         }
 
@@ -145,7 +143,6 @@ public class ShopUI {
 
             case "HEALTH POTION":
                 if (player.health >= player.maxHealth) {
-                    System.out.println("You already have full HP!");
                     return;
                 }
                 player.gold -= item.price;
@@ -179,7 +176,6 @@ public class ShopUI {
             item.boughtThisWave = true;
         }
 
-        System.out.println("Sold Out: " + item.name);
     }
 
 

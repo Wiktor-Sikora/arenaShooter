@@ -59,6 +59,7 @@ public class Slime extends Enemy {
         for (int i = 0; i < 47; i++) {
             deathFrames.add(deathAnimationAtlas.findRegion("death_animation" + i));
         }
+
         deathAnimation = new Animation<>(0.05f, deathFrames, Animation.PlayMode.NORMAL);
 
         this.healthBar = new HealthBar(game, maxHealth, (int)textureWidth);
