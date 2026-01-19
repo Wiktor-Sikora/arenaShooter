@@ -111,7 +111,7 @@ public class PlayerHud {
 
         // Fala
         font.setColor(Color.YELLOW);
-        font.draw(batch, "Fala: " + game.waveNumber, W - 100, hudY + 12);
+        font.draw(batch, "Wave: " + game.waveNumber, W - 100, hudY + 12);
 
         batch.end();
     }

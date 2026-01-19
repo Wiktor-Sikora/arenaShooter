@@ -3,8 +3,10 @@ package io.github.arenaShooter;
 import com.badlogic.gdx.ApplicationAdapter;
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.Input;
+import com.badlogic.gdx.graphics.GL20;
 import com.badlogic.gdx.graphics.g2d.BitmapFont;
 import com.badlogic.gdx.graphics.g2d.GlyphLayout;
+import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
 import com.badlogic.gdx.scenes.scene2d.Stage;
 import com.badlogic.gdx.utils.Array;
 import com.badlogic.gdx.graphics.Color;
@@ -18,6 +20,7 @@ import io.github.arenaShooter.enemies.Enemy;
 import io.github.arenaShooter.enemies.Skeleton;
 import io.github.arenaShooter.enemies.Slime;
 import io.github.arenaShooter.enemies.Zombie;
+import io.github.arenaShooter.ui.HealthBar;
 import io.github.arenaShooter.ui.PlayerHud;
 import io.github.arenaShooter.ui.ShopUI;
 import io.github.arenaShooter.weapons.Bullet;
@@ -40,6 +43,8 @@ public class Main extends ApplicationAdapter {
     public Stage stage;
     private BitmapFont font;
     private GlyphLayout layout;
+
+    private ShapeRenderer shapeRenderer;
 
     private final float MAP_TEXTURE_SIZE = 1500;
     public final float PLAYABLE_AREA_SIZE = 1400;
@@ -122,6 +127,10 @@ public class Main extends ApplicationAdapter {
                 player.healthBar.dispose();
                 player.dispose();
 
+                for (int i=0; i<enemies.size; i++ ) {
+
+                }
+
                 gameState = GameState.DEAD;
             }
 
@@ -175,14 +184,17 @@ public class Main extends ApplicationAdapter {
         camera.position.x = MathUtils.clamp(camera.position.x, quarterWidth, MAP_TEXTURE_SIZE - quarterWidth);
         camera.position.y = MathUtils.clamp(camera.position.y, quarterHeight, MAP_TEXTURE_SIZE - quarterHeight);
 
-        camera.zoom = 0.8f;
+        if (Gdx.graphics.getWidth() > 1400) {
+            camera.zoom = 0.8f;
+        } else {
+            camera.zoom = 1.1f;
+        }
 
         camera.update();
         batch.setProjectionMatrix(camera.combined);
 
         batch.begin();
         batch.draw(map, 0, 0, MAP_TEXTURE_SIZE, MAP_TEXTURE_SIZE);
-
 
         if (gameState == GameState.PLAYING) {
             player.render(batch);
@@ -212,9 +224,14 @@ public class Main extends ApplicationAdapter {
                 bullets.get(i).render(batch);
             }
 
-            drawCenteredText("You are dead", camera.position.y / 2f - layout.height, 5f);
-            drawCenteredText("Press [Enter] to restart", (camera.position.y - layout.height) / 2f + 50, 1f);
-//            drawCenteredText("Press [Esc] to quit", Gdx.graphics.getHeight() / 2f + 70f, 1f);
+            float centerY = camera.position.y;
+
+            font.setColor(Color.RED);
+            drawCenteredText("You are dead", centerY + 14, 5f);
+
+            font.setColor(Color.WHITE);
+            drawCenteredText("Press [Enter] to restart", centerY - 50, 1.2f);
+            drawCenteredText("Press [Esc] to quit", centerY - 70, 1.2f);
 
             batch.end();
             stage.draw();
