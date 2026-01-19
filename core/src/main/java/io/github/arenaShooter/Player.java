@@ -2,7 +2,6 @@ package io.github.arenaShooter;
 
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.Input;
-import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.graphics.g2d.Animation;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.graphics.g2d.TextureAtlas;
@@ -15,8 +14,6 @@ import com.badlogic.gdx.utils.Array;
 import io.github.arenaShooter.ui.HealthBar;
 import io.github.arenaShooter.weapons.Gun;
 import io.github.arenaShooter.weapons.Weapon;
-import io.github.arenaShooter.weapons.Uzi;
-import io.github.arenaShooter.weapons.Shotgun;
 
 
 public class Player extends Entity {
@@ -37,7 +34,10 @@ public class Player extends Entity {
     private final TextureAtlas textureAtlas = new TextureAtlas(Gdx.files.internal("player.atlas"));
 
     public int gold = 0;
-    public int DMG = 0;
+    public int dmg = 0;
+    public int dmgTaken = 0;
+    public int goldEarned = 0;
+    public int enemiesKilled = 0;
 
     public Player(float startX, float startY, Main game) {
         this.textureHeight = textureWidth = 64;
@@ -52,7 +52,7 @@ public class Player extends Entity {
         this.game = game;
 
         this.weapon = new Gun(game);
-        this.weapon.damage += DMG;
+        this.weapon.damage += dmg;
 
         this.healthBar = new HealthBar(game, maxHealth, (int)textureWidth);
 
@@ -197,6 +197,8 @@ public class Player extends Entity {
         if (health <= 0) return;
 
         health -= amount;
+
+        this.dmgTaken += ((int) amount);
 
         if (health <= 0) {
             health = 0;

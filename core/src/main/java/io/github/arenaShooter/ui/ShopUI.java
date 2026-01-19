@@ -75,6 +75,18 @@ public class ShopUI {
 
     }
 
+    public int getEnemiesKilled() {
+        return enemiesKilled;
+    }
+
+    public int getGoldEarned() {
+        return goldEarned;
+    }
+
+    public int getDamageTaken() {
+        return damageTaken;
+    }
+
     private static class ShopItem {
         String name;
         String desc;
@@ -116,19 +128,19 @@ public class ShopUI {
 
             case "GUN":
                 player.equipWeapon(new Gun(game));
-                game.player.weapon.damage += game.player.DMG;
+                game.player.weapon.damage += game.player.dmg;
                 break;
 
             case "SHOTGUN":
                 player.gold -= item.price;
                 player.equipWeapon(new Shotgun(game));
-                game.player.weapon.damage += game.player.DMG;
+                game.player.weapon.damage += game.player.dmg;
                 break;
 
             case "UZI":
                 player.gold -= item.price;
                 player.equipWeapon(new Uzi(game));
-                game.player.weapon.damage += game.player.DMG;
+                game.player.weapon.damage += game.player.dmg;
                 break;
 
             case "HEALTH POTION":
@@ -158,8 +170,8 @@ public class ShopUI {
 
             case "STRENGTH CHIP":
                 player.gold -= item.price;
-                game.player.DMG += CHIP_BOOST;
-                game.player.weapon.damage += game.player.DMG;
+                game.player.dmg += CHIP_BOOST;
+                game.player.weapon.damage += game.player.dmg;
                 break;
         }
 

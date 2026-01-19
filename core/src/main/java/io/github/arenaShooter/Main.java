@@ -25,6 +25,9 @@ import io.github.arenaShooter.ui.PlayerHud;
 import io.github.arenaShooter.ui.ShopUI;
 import io.github.arenaShooter.weapons.Bullet;
 
+import java.lang.Math;
+import java.io.*;
+import java.util.Dictionary;
 import java.util.List;
 import java.util.Random;
 
@@ -56,11 +59,20 @@ public class Main extends ApplicationAdapter {
 
     private static final int GOLD_PER_KILL = 30;
 
+    private final String SCORE_FILE_NAME = "score.txt";
+
     public Player player;
     public PlayerHud playerHud;
     public ShopUI shopUI;
     public Array<Enemy> enemies;
     public Array<Bullet> bullets;
+
+    public class HighScores {
+        public int goldEarned;
+        public int enemiesKilled;
+        public int damageTaken;
+    };
+    HighScores scores = new HighScores();
 
     @Override
     public void create() {
@@ -112,11 +124,14 @@ public class Main extends ApplicationAdapter {
 
         if (gameState == GameState.PLAYING) {
             player.handleInput(delta);
-
-        } else if (gameState == GameState.DEAD) {
-            if (Gdx.input.isKeyJustPressed(Input.Keys.ENTER)) {
-                System.out.println("Restart");
+            return;
+        } else if (gameState == GameState.PAUSED) {
+            if (Gdx.input.isButtonJustPressed(Input.Keys.ESCAPE)) {
+                return;
             }
+        } else if (gameState == GameState.DEAD) {
+            if (Gdx.input.isKeyJustPressed(Input.Keys.ENTER)) restartGame();
+            if (Gdx.input.isKeyJustPressed(Input.Keys.ESCAPE)) Gdx.app.exit();
         } else if (gameState == GameState.STORE) {
 
             if (Gdx.input.isKeyJustPressed(Input.Keys.ENTER)) {
@@ -146,6 +161,12 @@ public class Main extends ApplicationAdapter {
                 }
 
                 gameState = GameState.DEAD;
+                try {
+                    this.loadScore();
+                    this.saveScore();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
             }
 
             for (int i = 0; i < enemies.size; i++) {
@@ -154,6 +175,8 @@ public class Main extends ApplicationAdapter {
 
                     if (shopUI != null) {
                         shopUI.recordKill();
+                        player.goldEarned += GOLD_PER_KILL;
+                        player.enemiesKilled++;
                         shopUI.recordGold(GOLD_PER_KILL);
                     }
 
@@ -247,6 +270,10 @@ public class Main extends ApplicationAdapter {
             drawCenteredText("Press [Enter] to restart", centerY - 55, 1.2f);
             drawCenteredText("Press [Esc] to quit", centerY - 75, 1.2f);
 
+            drawCenteredText(String.format("Gold earned: %d / %d", player.goldEarned, scores.goldEarned), centerY - 110, 1.2f);
+            drawCenteredText(String.format("Enemies killed: %d / %d", player.enemiesKilled, scores.enemiesKilled), centerY - 130, 1.2f);
+            drawCenteredText(String.format("Damage taken: %d / %d", player.dmgTaken, scores.damageTaken), centerY - 150, 1.2f);
+
             batch.end();
             stage.draw();
         } else {
@@ -337,5 +364,58 @@ public class Main extends ApplicationAdapter {
         font.getData().setScale(scale);
         layout.setText(font, text);
         font.draw(batch, text, camera.position.x - layout.width / 2f, y);
+    }
+
+    private void saveScore() throws IOException {
+        BufferedWriter writer = new BufferedWriter(new FileWriter(SCORE_FILE_NAME));
+
+        writer.write(String.format("%d;", Math.max(player.goldEarned, scores.goldEarned)));
+        writer.write(String.format("%d;", Math.max(player.enemiesKilled, scores.enemiesKilled)));
+        writer.write(String.format("%d", Math.max(player.dmgTaken, scores.damageTaken)));
+
+        writer.close();
+    }
+
+    private void loadScore() {
+        try {
+            BufferedReader reader = new BufferedReader(new FileReader(SCORE_FILE_NAME));
+            String currentLine = reader.readLine();
+            reader.close();
+
+            if (currentLine == null) {
+                scores.goldEarned = 0;
+                scores.enemiesKilled = 0;
+                scores.damageTaken = 0;
+                return;
+            };
+            String[] values = currentLine.split(";");
+
+            scores.goldEarned = Integer.parseInt(values[0]);
+            scores.enemiesKilled = Integer.parseInt(values[1]);
+            scores.damageTaken = Integer.parseInt(values[2]);
+        } catch (IOException e) {
+        }
+    }
+
+    private void restartGame() {
+        player.dispose();
+        player = new Player(AREA_OFFSET + PLAYABLE_AREA_SIZE / 2, AREA_OFFSET + PLAYABLE_AREA_SIZE / 2, this);
+        shopUI.dispose();
+        shopUI = new ShopUI(this);
+        waveNumber = 0;
+
+        for (int i = 0; i < bullets.size; i++) {
+            bullets.get(i).dispose();
+            bullets.removeIndex(i);
+            i--;
+        }
+
+        for (int i = 0; i < enemies.size; i++) {
+            enemies.get(i).dispose();
+            enemies.removeIndex(i);
+            i--;
+        }
+
+        startNextWave();
     }
 }
