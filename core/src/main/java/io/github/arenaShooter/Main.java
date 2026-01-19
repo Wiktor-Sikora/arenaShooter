@@ -45,7 +45,7 @@ public class Main extends ApplicationAdapter {
     private BitmapFont font;
     private GlyphLayout layout;
 
-    private ShapeRenderer shapeRenderer;
+    public ShapeRenderer shapeRenderer;
 
     private final float MAP_TEXTURE_SIZE = 1500;
     public final float PLAYABLE_AREA_SIZE = 1400;
@@ -72,6 +72,7 @@ public class Main extends ApplicationAdapter {
         font = new BitmapFont();
         layout = new GlyphLayout();
         Gdx.input.setInputProcessor(stage);
+        shapeRenderer = new ShapeRenderer();
 
         map = new Texture("map.png");
 
@@ -99,15 +100,23 @@ public class Main extends ApplicationAdapter {
     private void input() {
         float delta = Gdx.graphics.getDeltaTime();
 
+        if (Gdx.input.isKeyJustPressed(Input.Keys.ESCAPE)) {
+            if (gameState == GameState.PLAYING) {
+                gameState = GameState.PAUSED;
+            } else if (gameState == GameState.PAUSED) {
+                gameState = GameState.PLAYING;
+            } else if (gameState == GameState.DEAD) {
+
+            }
+        }
+
         if (gameState == GameState.PLAYING) {
             player.handleInput(delta);
-            return;
-        } else if (gameState == GameState.PAUSED) {
-            if (Gdx.input.isButtonJustPressed(Input.Keys.ESCAPE)) {
-                return;
-            }
-        } else if (gameState == GameState.DEAD) {
 
+        } else if (gameState == GameState.DEAD) {
+            if (Gdx.input.isKeyJustPressed(Input.Keys.ENTER)) {
+                System.out.println("Restart");
+            }
         } else if (gameState == GameState.STORE) {
 
             if (Gdx.input.isKeyJustPressed(Input.Keys.ENTER)) {
@@ -240,9 +249,22 @@ public class Main extends ApplicationAdapter {
 
             batch.end();
             stage.draw();
+        } else {
+            batch.end();
         }
 
+        if (gameState == GameState.PAUSED) {
+            Gdx.gl.glEnable(Gdx.gl.GL_BLEND);
+            shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
+            shapeRenderer.setColor(0, 0, 0, 0.4f);
+            shapeRenderer.rect(0, 0, Gdx.graphics.getWidth(), Gdx.graphics.getHeight()+80);
+            shapeRenderer.end();
 
+            batch.begin();
+            drawCenteredText("PAUSED", camera.position.y, 2f);
+            drawCenteredText("Press ESC to play", camera.position.y-45, 1.2f);
+            batch.end();
+        }
     }
 
     @Override
