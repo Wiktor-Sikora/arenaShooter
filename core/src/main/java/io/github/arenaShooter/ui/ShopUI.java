@@ -228,12 +228,12 @@ public class ShopUI {
         // --- 2. Nagłówek ---
         font.getData().setScale(3f);
         font.setColor(Color.ORANGE);
-        drawCenteredText("SHOP - WAVE " + game.waveNumber, screenH - 50);
+        drawCenteredText("SHOP - WAVE " + game.waveNumber, screenH - 80);
 
         // Statystyki gracza
         font.getData().setScale(1.5f);
         font.setColor(Color.WHITE);
-        drawCenteredText("You have: " + game.player.gold + " G  |  HP: " + (int)game.player.health + "/" + (int)game.player.maxHealth, screenH - 100);
+        drawCenteredText("You have: " + game.player.gold + " G  |  HP: " + (int)game.player.health + "/" + (int)game.player.maxHealth, screenH - 125);
 
         batch.end();
 
@@ -275,7 +275,7 @@ public class ShopUI {
         batch.begin();
         font.getData().setScale(1.3f);
         font.setColor(Color.GREEN);
-        drawCenteredText("Nacisnij [ENTER] aby walczyc dalej!", 50);
+        drawCenteredText("Press [ENTER] to start new wave!", 50);
         batch.end();
     }
 
