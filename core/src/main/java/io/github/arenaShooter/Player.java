@@ -198,6 +198,8 @@ public class Player extends Entity {
 
         health -= amount;
 
+        game.shopUI.recordDamage((int) amount);
+
         if (health <= 0) {
             health = 0;
             kill();
