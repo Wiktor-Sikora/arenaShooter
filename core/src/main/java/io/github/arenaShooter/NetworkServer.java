@@ -292,6 +292,15 @@ public class NetworkServer implements Runnable {
             return;
         }
 
+        if ("STATE".equalsIgnoreCase(parts[0]) && parts.length >= 4) {
+            String clientId = parts[1];
+            if (!clientId.equals(ownerClientId)) {
+                return;
+            }
+            broadcast("STATE " + parts[2] + " " + parts[3]);
+            return;
+        }
+
         if ("INPUT".equalsIgnoreCase(parts[0]) && parts.length >= 6) {
             if (gameState != GameState.PLAYING) {
                 return;

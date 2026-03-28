@@ -101,6 +101,8 @@ public class Main extends ApplicationAdapter {
     private final CopyOnWriteArrayList<LobbyMenu.LobbyPlayer> lobbyPlayers = new CopyOnWriteArrayList<>();
     private boolean lobbyLocalReady = false;
     private String lobbyStatus = "Waiting for lobby state...";
+    private GameState lastSyncedHostState = null;
+    private int lastSyncedHostWave = -1;
 
     HighScores scores = new HighScores();
 
@@ -174,8 +176,10 @@ public class Main extends ApplicationAdapter {
         if (Gdx.input.isKeyJustPressed(Input.Keys.ESCAPE)) {
             if (gameState == GameState.PLAYING) {
                 gameState = GameState.PAUSED;
+                syncHostGameStateIfNeeded();
             } else if (gameState == GameState.PAUSED) {
                 gameState = GameState.PLAYING;
+                syncHostGameStateIfNeeded();
             }
         }
 
@@ -215,6 +219,7 @@ public class Main extends ApplicationAdapter {
                 }
 
                 gameState = GameState.DEAD;
+                syncHostGameStateIfNeeded();
                 try {
                     this.loadScore();
                     this.saveScore();
@@ -242,8 +247,9 @@ public class Main extends ApplicationAdapter {
                 }
             }
 
-            if (enemies.size == 0) {
+            if (enemies.size == 0 && networkMode != NetworkMode.CLIENT) {
                 gameState = GameState.STORE;
+                syncHostGameStateIfNeeded();
             }
 
             for (int i = 0; i < bullets.size; i++) {
@@ -392,6 +398,7 @@ public class Main extends ApplicationAdapter {
 
         waveNumber++;
         gameState = GameState.PLAYING;
+        syncHostGameStateIfNeeded();
         shopUI.randomizeShop();
         shopUI.resetWavePurchases();
 
@@ -553,6 +560,10 @@ public class Main extends ApplicationAdapter {
             });
             return;
         }
+        if (message.startsWith("STATE ")) {
+            handleStateMessage(message);
+            return;
+        }
         if (!message.startsWith("SNAPSHOT ")) {
             return;
         }
@@ -646,6 +657,8 @@ public class Main extends ApplicationAdapter {
         gameState = GameState.LOBBY;
         lobbyStatus = "Connected. Press R to set ready.";
         sendReadyState();
+        lastSyncedHostState = null;
+        lastSyncedHostWave = -1;
     }
 
     private String resolveLocalHostingIp() {
@@ -760,5 +773,51 @@ public class Main extends ApplicationAdapter {
             }
         }
         return true;
+    }
+
+    private void handleStateMessage(String message) {
+        if (networkMode != NetworkMode.CLIENT) {
+            return;
+        }
+
+        String[] parts = message.split("\\s+");
+        if (parts.length < 3) {
+            return;
+        }
+
+        GameState incomingState;
+        int incomingWave;
+        try {
+            incomingState = GameState.valueOf(parts[1]);
+            incomingWave = Integer.parseInt(parts[2]);
+        } catch (IllegalArgumentException ignored) {
+            return;
+        }
+
+        Gdx.app.postRunnable(() -> {
+            waveNumber = incomingWave;
+            gameState = incomingState;
+        });
+    }
+
+    private void syncHostGameStateIfNeeded() {
+        if (networkMode != NetworkMode.HOST || !networkConnected || networkClient == null || !networkClient.isConnected()) {
+            return;
+        }
+        if (gameState == GameState.MENU || gameState == GameState.LOBBY) {
+            return;
+        }
+        if (lastSyncedHostState == gameState && lastSyncedHostWave == waveNumber) {
+            return;
+        }
+
+        try {
+            networkClient.sendMessage("STATE " + networkClient.getClientId() + " " + gameState.name() + " " + waveNumber);
+            lastSyncedHostState = gameState;
+            lastSyncedHostWave = waveNumber;
+        } catch (IOException e) {
+            networkConnected = false;
+            lobbyStatus = "Disconnected while syncing state.";
+        }
     }
 }
