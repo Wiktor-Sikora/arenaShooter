@@ -70,11 +70,12 @@ public class Slime extends Enemy {
         stateTime += delta;
         damageTimer += delta;
 
-        float dx = game.player.hitbox.getX() - hitbox.getX();
-        float dy = game.player.hitbox.getY() - hitbox.getY();
+        Vector2 targetCenter = game.getClosestPlayerCenter(getCenterX(), getCenterY());
+        float dx = targetCenter.x - hitbox.getX();
+        float dy = targetCenter.y - hitbox.getY();
         float distanceToPlayer = (float) Math.sqrt(dx * dx + dy * dy);
 
-        flipped = (game.player.hitbox.getX() < hitbox.getX());
+        flipped = (targetCenter.x < hitbox.getX());
 
         switch (state) {
             case WALK:
@@ -94,7 +95,7 @@ public class Slime extends Enemy {
                 if (stateTime >= CHARGING_DURATION) {
                     stateTime = 0f;
                     state = State.ATTACK;
-                    this.attackVelocity = new Vector2(dx + game.player.hitbox.getWidth() / 2 , dy + game.player.hitbox.getWidth() / 2).nor().scl(speed * 3);
+                    this.attackVelocity = new Vector2(targetCenter.x - getCenterX(), targetCenter.y - getCenterY()).nor().scl(speed * 3);
                 }
                 break;
 
@@ -129,9 +130,9 @@ public class Slime extends Enemy {
             damageTimer = 0f;
 
             if (state == State.CHARGING) {
-                game.player.takeDamage(DAMAGE_ON_CHARGE_MULTIPLAYER * damage);
+                game.damageClosestLocalPlayerIfTargeted(getCenterX(), getCenterY(), DAMAGE_ON_CHARGE_MULTIPLAYER * damage);
             } else if (state != State.DEAD) {
-                game.player.takeDamage(damage);
+                game.damageClosestLocalPlayerIfTargeted(getCenterX(), getCenterY(), damage);
             }
         } else {
             damageTimer += delta;

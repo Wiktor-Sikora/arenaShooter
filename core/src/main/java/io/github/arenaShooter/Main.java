@@ -13,6 +13,9 @@ import com.badlogic.gdx.utils.Array;
 import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
+import com.badlogic.gdx.graphics.g2d.TextureAtlas;
+import com.badlogic.gdx.graphics.g2d.TextureRegion;
+import com.badlogic.gdx.math.Rectangle;
 import com.badlogic.gdx.math.Vector2;
 import com.badlogic.gdx.math.MathUtils;
 import com.badlogic.gdx.utils.ScreenUtils;
@@ -108,6 +111,8 @@ public class Main extends ApplicationAdapter {
     private int lastSyncedHostWave = -1;
     private Texture networkPlayerBulletTexture;
     private Texture networkEnemyBulletTexture;
+    private TextureAtlas remotePlayerAtlas;
+    private TextureRegion remotePlayerFrame;
 
     private static class EnemySnapshot {
         String type;
@@ -135,7 +140,6 @@ public class Main extends ApplicationAdapter {
     }
 
     private final Map<Integer, RemotePlayerSnapshot> remotePlayers = new ConcurrentHashMap<>();
-    private Texture remotePlayerTexture;
 
     HighScores scores = new HighScores();
 
@@ -163,9 +167,10 @@ public class Main extends ApplicationAdapter {
         shapeRenderer = new ShapeRenderer();
 
         map = new Texture("map.png");
-        remotePlayerTexture = new Texture("player.png");
         networkPlayerBulletTexture = new Texture("bullet.png");
         networkEnemyBulletTexture = new Texture("bone.png");
+        remotePlayerAtlas = new TextureAtlas(Gdx.files.internal("player.atlas"));
+        remotePlayerFrame = remotePlayerAtlas.findRegion("player_side_0");
 
         player = new Player(AREA_OFFSET + PLAYABLE_AREA_SIZE / 2, AREA_OFFSET + PLAYABLE_AREA_SIZE / 2, this);
 
@@ -418,9 +423,9 @@ public class Main extends ApplicationAdapter {
         batch.dispose();
         player.dispose();
         map.dispose();
-        remotePlayerTexture.dispose();
         networkPlayerBulletTexture.dispose();
         networkEnemyBulletTexture.dispose();
+        remotePlayerAtlas.dispose();
         stage.dispose();
 
         if (shopUI != null) {
@@ -1159,8 +1164,51 @@ public class Main extends ApplicationAdapter {
     }
 
     private void renderRemotePlayers(SpriteBatch batch) {
+        if (remotePlayerFrame == null) {
+            return;
+        }
         for (RemotePlayerSnapshot remote : remotePlayers.values()) {
-            batch.draw(remotePlayerTexture, remote.x - 16f, remote.y - 16f, 32f, 32f);
+            float drawX = remote.x - 16f;
+            float drawY = remote.y;
+            batch.draw(remotePlayerFrame, drawX, drawY, 64f, 64f);
+        }
+    }
+
+    public Vector2 getClosestPlayerCenter(float fromX, float fromY) {
+        Vector2 closest = new Vector2(player.getCenterX(), player.getCenterY());
+        float bestDistance2 = (closest.x - fromX) * (closest.x - fromX) + (closest.y - fromY) * (closest.y - fromY);
+
+        for (RemotePlayerSnapshot remote : remotePlayers.values()) {
+            float candidateX = remote.x + 16f;
+            float candidateY = remote.y + 32f;
+            float distance2 = (candidateX - fromX) * (candidateX - fromX) + (candidateY - fromY) * (candidateY - fromY);
+            if (distance2 < bestDistance2) {
+                bestDistance2 = distance2;
+                closest.set(candidateX, candidateY);
+            }
+        }
+
+        return closest;
+    }
+
+    public boolean isAnyPlayerOverlapping(Rectangle hitbox) {
+        if (hitbox.overlaps(player.hitbox)) {
+            return true;
+        }
+        for (RemotePlayerSnapshot remote : remotePlayers.values()) {
+            Rectangle remoteHitbox = new Rectangle(remote.x, remote.y, player.hitbox.width, player.hitbox.height);
+            if (hitbox.overlaps(remoteHitbox)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    public void damageClosestLocalPlayerIfTargeted(float fromX, float fromY, float amount) {
+        Vector2 closest = getClosestPlayerCenter(fromX, fromY);
+        float epsilon = 0.1f;
+        if (Math.abs(closest.x - player.getCenterX()) < epsilon && Math.abs(closest.y - player.getCenterY()) < epsilon) {
+            player.takeDamage(amount);
         }
     }
 }

@@ -70,11 +70,12 @@ public class Skeleton extends Enemy {
         stateTime += delta;
         damageTimer += delta;
 
-        float dx = game.player.hitbox.getX() - hitbox.getX();
-        float dy = game.player.hitbox.getY() - hitbox.getY();
+        Vector2 targetCenter = game.getClosestPlayerCenter(getCenterX(), getCenterY());
+        float dx = targetCenter.x - hitbox.getX();
+        float dy = targetCenter.y - hitbox.getY();
         float distanceToPlayer = (float) Math.sqrt(dx * dx + dy * dy);
 
-        flipped = (game.player.hitbox.getX() < hitbox.getX());
+        flipped = (targetCenter.x < hitbox.getX());
 
         switch (state) {
             case WALK:
@@ -91,7 +92,7 @@ public class Skeleton extends Enemy {
             case ATTACK:
                 //onetime animation
                 if(!hasShotThisCycle && stateTime >= attackAnimation.getFrameDuration()) {
-                    shoot(game.player.getCenterX(), game.player.getCenterY());
+                    shoot(targetCenter.x, targetCenter.y);
                     attackCount++;
                     hasShotThisCycle = true;
                 }
