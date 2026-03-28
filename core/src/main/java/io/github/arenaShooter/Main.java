@@ -3,6 +3,8 @@ package io.github.arenaShooter;
 import com.badlogic.gdx.ApplicationAdapter;
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.Input;
+import com.badlogic.gdx.InputAdapter;
+import com.badlogic.gdx.InputMultiplexer;
 import com.badlogic.gdx.graphics.g2d.BitmapFont;
 import com.badlogic.gdx.graphics.g2d.GlyphLayout;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
@@ -19,23 +21,41 @@ import io.github.arenaShooter.enemies.Enemy;
 import io.github.arenaShooter.enemies.Skeleton;
 import io.github.arenaShooter.enemies.Slime;
 import io.github.arenaShooter.enemies.Zombie;
+import io.github.arenaShooter.ui.LobbyMenu;
 import io.github.arenaShooter.ui.PlayerHud;
 import io.github.arenaShooter.ui.ShopUI;
+import io.github.arenaShooter.ui.Menu;
 import io.github.arenaShooter.weapons.Bullet;
 
-import java.io.*;
+import java.io.BufferedReader;
+import java.io.BufferedWriter;
+import java.io.FileReader;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.net.SocketException;
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Random;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.function.Supplier;
 
 public class Main extends ApplicationAdapter {
+    private enum NetworkMode {
+        OFFLINE,
+        HOST,
+        CLIENT
+    }
+
     public enum GameState {
+        MENU,
+        LOBBY,
         PLAYING,
         PAUSED,
         DEAD,
         STORE
     }
-    public GameState gameState = GameState.PLAYING;
+    public GameState gameState = GameState.MENU;
     public int waveNumber = 0;
     private SpriteBatch batch;
     public OrthographicCamera camera;
@@ -69,6 +89,19 @@ public class Main extends ApplicationAdapter {
         public int enemiesKilled;
         public int damageTaken;
     }
+
+    private NetworkMode networkMode = NetworkMode.OFFLINE;
+    private NetworkServer networkServer;
+    private NetworkClient networkClient;
+    private Thread networkServerThread;
+    private boolean networkConnected = false;
+    private long networkInputTick = 0L;
+    private Menu menu;
+    private LobbyMenu lobbyMenu;
+    private final CopyOnWriteArrayList<LobbyMenu.LobbyPlayer> lobbyPlayers = new CopyOnWriteArrayList<>();
+    private boolean lobbyLocalReady = false;
+    private String lobbyStatus = "Waiting for lobby state...";
+
     HighScores scores = new HighScores();
 
     @Override
@@ -80,7 +113,18 @@ public class Main extends ApplicationAdapter {
         stage = new Stage(viewport);
         font = new BitmapFont();
         layout = new GlyphLayout();
-        Gdx.input.setInputProcessor(stage);
+        InputMultiplexer inputMultiplexer = new InputMultiplexer();
+        inputMultiplexer.addProcessor(stage);
+        inputMultiplexer.addProcessor(new InputAdapter() {
+            @Override
+            public boolean keyTyped(char character) {
+                if (gameState != GameState.MENU) {
+                    return false;
+                }
+                return menu != null && menu.handleCharacter(character);
+            }
+        });
+        Gdx.input.setInputProcessor(inputMultiplexer);
         shapeRenderer = new ShapeRenderer();
 
         map = new Texture("map.png");
@@ -96,7 +140,10 @@ public class Main extends ApplicationAdapter {
 
         camera.position.set(player.getCenterX(), player.getCenterY(), 0);
 
-        startNextWave();
+        String defaultClientHost = System.getProperty("arena.network.host", "127.0.0.1");
+        int defaultPort = parsePort(System.getProperty("arena.network.port", "7777"), 7777);
+        menu = new Menu(defaultClientHost, resolveLocalHostingIp(), defaultPort);
+        lobbyMenu = new LobbyMenu();
     }
 
     @Override
@@ -109,23 +156,33 @@ public class Main extends ApplicationAdapter {
     private void input() {
         float delta = Gdx.graphics.getDeltaTime();
 
+        if (gameState == GameState.MENU) {
+            Menu.StartMode startMode = menu.pollStartMode();
+            if (startMode == Menu.StartMode.HOST) {
+                startFromMenu(NetworkMode.HOST);
+            } else if (startMode == Menu.StartMode.CLIENT) {
+                startFromMenu(NetworkMode.CLIENT);
+            }
+            return;
+        }
+
+        if (gameState == GameState.LOBBY) {
+            handleLobbyInput();
+            return;
+        }
+
         if (Gdx.input.isKeyJustPressed(Input.Keys.ESCAPE)) {
             if (gameState == GameState.PLAYING) {
                 gameState = GameState.PAUSED;
             } else if (gameState == GameState.PAUSED) {
                 gameState = GameState.PLAYING;
-            } else if (gameState == GameState.DEAD) {
-
             }
         }
 
         if (gameState == GameState.PLAYING) {
             player.handleInput(delta);
+            sendNetworkInput();
             return;
-        } else if (gameState == GameState.PAUSED) {
-            if (Gdx.input.isButtonJustPressed(Input.Keys.ESCAPE)) {
-                return;
-            }
         } else if (gameState == GameState.DEAD) {
             if (Gdx.input.isKeyJustPressed(Input.Keys.ENTER)) restartGame();
             if (Gdx.input.isKeyJustPressed(Input.Keys.ESCAPE)) Gdx.app.exit();
@@ -198,13 +255,20 @@ public class Main extends ApplicationAdapter {
                     bullets.get(i).update(delta);
                 }
             }
-        } else if (gameState == GameState.DEAD) {
-
         }
     }
 
     private void draw() {
         ScreenUtils.clear(Color.BLACK);
+
+        if (gameState == GameState.MENU) {
+            menu.render(batch, font, layout, camera);
+            return;
+        }
+        if (gameState == GameState.LOBBY) {
+            lobbyMenu.render(batch, font, layout, camera, networkMode == NetworkMode.HOST, lobbyLocalReady, lobbyPlayers, lobbyStatus);
+            return;
+        }
 
         float delta = Gdx.graphics.getDeltaTime();
         stage.act(Gdx.graphics.getDeltaTime());
@@ -299,6 +363,8 @@ public class Main extends ApplicationAdapter {
 
     @Override
     public void dispose() {
+        shutdownNetworking();
+
         batch.dispose();
         player.dispose();
         map.dispose();
@@ -422,5 +488,277 @@ public class Main extends ApplicationAdapter {
         }
 
         startNextWave();
+    }
+
+    private void shutdownNetworking() {
+        if (networkClient != null) {
+            networkClient.disconnect();
+        }
+
+        if (networkServer != null) {
+            networkServer.stop();
+        }
+
+        if (networkServerThread != null) {
+            try {
+                networkServerThread.join(1000);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+        }
+    }
+
+    private void sendNetworkInput() {
+        if (!networkConnected || networkClient == null || !networkClient.isConnected()) {
+            return;
+        }
+        if (networkMode == NetworkMode.HOST) {
+            // Host player is already simulated locally; avoid applying movement twice.
+            return;
+        }
+
+        float moveX = 0f;
+        float moveY = 0f;
+
+        if (Gdx.input.isKeyPressed(Input.Keys.A)) moveX -= 1f;
+        if (Gdx.input.isKeyPressed(Input.Keys.D)) moveX += 1f;
+        if (Gdx.input.isKeyPressed(Input.Keys.S)) moveY -= 1f;
+        if (Gdx.input.isKeyPressed(Input.Keys.W)) moveY += 1f;
+
+        boolean fire = Gdx.input.isTouched(Input.Buttons.LEFT);
+        String payload = "INPUT " + networkClient.getClientId() + " " + networkInputTick + " " + moveX + " " + moveY + " " + fire;
+
+        try {
+            networkClient.sendMessage(payload);
+            networkInputTick++;
+        } catch (IOException e) {
+            networkConnected = false;
+            Gdx.app.error("Networking", "Failed to send input packet", e);
+        }
+    }
+
+    private void handleNetworkMessage(String message) {
+        if (message == null || message.isBlank()) {
+            return;
+        }
+        if (message.startsWith("LOBBY ")) {
+            handleLobbyMessage(message);
+            return;
+        }
+        if (message.startsWith("START")) {
+            Gdx.app.postRunnable(() -> {
+                if (gameState == GameState.LOBBY) {
+                    startNextWave();
+                }
+            });
+            return;
+        }
+        if (!message.startsWith("SNAPSHOT ")) {
+            return;
+        }
+
+        String[] parts = message.split("\\s+");
+        if (parts.length < 6) {
+            return;
+        }
+
+        if (networkMode == NetworkMode.CLIENT && gameState == GameState.PLAYING) {
+            try {
+                player.hitbox.x = Float.parseFloat(parts[2]);
+                player.hitbox.y = Float.parseFloat(parts[3]);
+                player.health = Float.parseFloat(parts[4]);
+            } catch (NumberFormatException ignored) {
+                // Ignore malformed snapshot payloads.
+            }
+        }
+    }
+
+    private int parsePort(String rawPort, int defaultPort) {
+        if (rawPort == null || rawPort.isBlank()) {
+            return defaultPort;
+        }
+
+        try {
+            int parsed = Integer.parseInt(rawPort);
+            if (parsed > 0 && parsed <= 65535) {
+                return parsed;
+            }
+        } catch (NumberFormatException ignored) {
+        }
+
+        return defaultPort;
+    }
+
+    private void startFromMenu(NetworkMode selectedMode) {
+        shutdownNetworking();
+        networkMode = selectedMode;
+        networkConnected = false;
+        networkInputTick = 0L;
+        lobbyLocalReady = false;
+        lobbyPlayers.clear();
+        lobbyStatus = "Connecting...";
+
+        networkClient = new NetworkClient();
+        networkClient.addMessageListener(this::handleNetworkMessage);
+
+        if (networkMode == NetworkMode.HOST) {
+            networkServer = new NetworkServer();
+            networkServer.players.add(player);
+            try {
+                networkServer.start(menu.getPort());
+                networkServerThread = new Thread(networkServer, "network-server");
+                networkServerThread.setDaemon(true);
+                networkServerThread.start();
+            } catch (SocketException e) {
+                Gdx.app.error("Networking", "Could not start host server on port " + menu.getPort(), e);
+                networkMode = NetworkMode.OFFLINE;
+                menu.setStatus("Host failed. Press F1 to retry or F2 to join.");
+                return;
+            }
+
+            try {
+                networkConnected = networkClient.connect("127.0.0.1", menu.getPort());
+            } catch (IOException e) {
+                Gdx.app.error("Networking", "Host client could not connect to local server", e);
+                menu.setStatus("Host started, but local client connection failed.");
+                networkConnected = false;
+            }
+        } else if (networkMode == NetworkMode.CLIENT) {
+            try {
+                networkConnected = networkClient.connect(menu.getClientHost(), menu.getPort());
+            } catch (IOException e) {
+                Gdx.app.error("Networking", "Client could not connect to " + menu.getClientHost() + ":" + menu.getPort(), e);
+                menu.setStatus("Connection failed. Press F2 to retry or F1 to host.");
+                networkConnected = false;
+                return;
+            }
+
+            if (!networkConnected) {
+                menu.setStatus("Connection refused/time out. Press F2 to retry or F1 to host.");
+                return;
+            }
+        }
+
+        if (!networkConnected) {
+            return;
+        }
+
+        gameState = GameState.LOBBY;
+        lobbyStatus = "Connected. Press R to set ready.";
+        sendReadyState();
+    }
+
+    private String resolveLocalHostingIp() {
+        List<String> localAddresses = NetworkClient.getLocalIpv4Addresses();
+        if (localAddresses.isEmpty()) {
+            return "127.0.0.1";
+        }
+        return localAddresses.get(0);
+    }
+
+    private void handleLobbyInput() {
+        if (Gdx.input.isKeyJustPressed(Input.Keys.R)) {
+            lobbyLocalReady = !lobbyLocalReady;
+            sendReadyState();
+            return;
+        }
+
+        if (networkMode == NetworkMode.HOST && Gdx.input.isKeyJustPressed(Input.Keys.ENTER)) {
+            if (!areAllLobbyPlayersReady()) {
+                lobbyStatus = "All connected clients must be ready.";
+                return;
+            }
+            requestLobbyStart();
+        }
+    }
+
+    private void sendReadyState() {
+        if (!networkConnected || networkClient == null || !networkClient.isConnected()) {
+            return;
+        }
+
+        try {
+            networkClient.sendMessage("READY " + networkClient.getClientId() + " " + lobbyLocalReady);
+        } catch (IOException e) {
+            networkConnected = false;
+            lobbyStatus = "Disconnected while sending ready state.";
+        }
+    }
+
+    private void requestLobbyStart() {
+        if (!networkConnected || networkClient == null || !networkClient.isConnected()) {
+            return;
+        }
+
+        try {
+            networkClient.sendMessage("START " + networkClient.getClientId());
+            lobbyStatus = "Starting game...";
+        } catch (IOException e) {
+            networkConnected = false;
+            lobbyStatus = "Could not request game start.";
+        }
+    }
+
+    private void handleLobbyMessage(String message) {
+        String[] parts = message.split("\\s+");
+        if (parts.length < 2) {
+            return;
+        }
+
+        int playerCount;
+        try {
+            playerCount = Integer.parseInt(parts[1]);
+        } catch (NumberFormatException ignored) {
+            return;
+        }
+
+        List<LobbyMenu.LobbyPlayer> parsedPlayers = new ArrayList<>();
+        for (int i = 0; i < playerCount && i + 2 < parts.length; i++) {
+            String[] playerParts = parts[i + 2].split(",", 3);
+            if (playerParts.length < 3) {
+                continue;
+            }
+
+            try {
+                int playerId = Integer.parseInt(playerParts[0]);
+                boolean ready = "1".equals(playerParts[1]);
+                String clientId = playerParts[2];
+                parsedPlayers.add(new LobbyMenu.LobbyPlayer(playerId, ready, clientId));
+
+                if (networkClient != null && clientId.equals(networkClient.getClientId())) {
+                    lobbyLocalReady = ready;
+                }
+            } catch (NumberFormatException ignored) {
+                // Ignore malformed lobby entry.
+            }
+        }
+
+        parsedPlayers.sort(Comparator.comparingInt(player -> player.playerId));
+        lobbyPlayers.clear();
+        lobbyPlayers.addAll(parsedPlayers);
+
+        if (networkMode == NetworkMode.HOST) {
+            if (areAllLobbyPlayersReady()) {
+                lobbyStatus = "Everyone is ready. Press Enter to start.";
+            } else {
+                lobbyStatus = "Waiting for all clients to be ready...";
+            }
+        } else {
+            lobbyStatus = areAllLobbyPlayersReady()
+                ? "Everyone is ready. Waiting for host to start."
+                : "Waiting for players to be ready...";
+        }
+    }
+
+    private boolean areAllLobbyPlayersReady() {
+        if (lobbyPlayers.isEmpty()) {
+            return false;
+        }
+        for (LobbyMenu.LobbyPlayer player : lobbyPlayers) {
+            if (!player.ready) {
+                return false;
+            }
+        }
+        return true;
     }
 }

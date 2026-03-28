@@ -216,13 +216,9 @@ public class Player extends Entity {
 
     @Override
     public void kill() {
-        // ==========================================
-        // NOWE - Obsługa śmierci gracza
-        // ==========================================
         alive = false;
         System.out.println("=== GAME OVER ===");
         System.out.println("Wave: " + game.waveNumber);
         System.out.println("Collected gold: " + gold);
-        // ==========================================
     }
 }
