@@ -13,6 +13,7 @@ import com.badlogic.gdx.utils.Array;
 import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
+import com.badlogic.gdx.math.Vector2;
 import com.badlogic.gdx.math.MathUtils;
 import com.badlogic.gdx.utils.ScreenUtils;
 import com.badlogic.gdx.graphics.OrthographicCamera;
@@ -103,6 +104,26 @@ public class Main extends ApplicationAdapter {
     private String lobbyStatus = "Waiting for lobby state...";
     private GameState lastSyncedHostState = null;
     private int lastSyncedHostWave = -1;
+    private Texture networkPlayerBulletTexture;
+    private Texture networkEnemyBulletTexture;
+
+    private static class EnemySnapshot {
+        String type;
+        float x;
+        float y;
+        float health;
+    }
+
+    private static class BulletSnapshot {
+        String owner;
+        float x;
+        float y;
+        float width;
+        float height;
+        float vx;
+        float vy;
+        float rotation;
+    }
 
     HighScores scores = new HighScores();
 
@@ -130,6 +151,8 @@ public class Main extends ApplicationAdapter {
         shapeRenderer = new ShapeRenderer();
 
         map = new Texture("map.png");
+        networkPlayerBulletTexture = new Texture("bullet.png");
+        networkEnemyBulletTexture = new Texture("bone.png");
 
         player = new Player(AREA_OFFSET + PLAYABLE_AREA_SIZE / 2, AREA_OFFSET + PLAYABLE_AREA_SIZE / 2, this);
 
@@ -228,38 +251,44 @@ public class Main extends ApplicationAdapter {
                 }
             }
 
-            for (int i = 0; i < enemies.size; i++) {
-                if (enemies.get(i).isDisposable()) {
-                    player.gold += GOLD_PER_KILL;
+            if (networkMode != NetworkMode.CLIENT) {
+                for (int i = 0; i < enemies.size; i++) {
+                    if (enemies.get(i).isDisposable()) {
+                        player.gold += GOLD_PER_KILL;
 
-                    if (shopUI != null) {
-                        shopUI.recordKill();
-                        player.goldEarned += GOLD_PER_KILL;
-                        player.enemiesKilled++;
-                        shopUI.recordGold(GOLD_PER_KILL);
+                        if (shopUI != null) {
+                            shopUI.recordKill();
+                            player.goldEarned += GOLD_PER_KILL;
+                            player.enemiesKilled++;
+                            shopUI.recordGold(GOLD_PER_KILL);
+                        }
+
+                        enemies.get(i).dispose();
+                        enemies.removeIndex(i);
+                        i--;
+                    } else {
+                        enemies.get(i).update(delta);
                     }
+                }
 
-                    enemies.get(i).dispose();
-                    enemies.removeIndex(i);
-                    i--;
-                } else {
-                    enemies.get(i).update(delta);
+                if (enemies.size == 0) {
+                    gameState = GameState.STORE;
+                    syncHostGameStateIfNeeded();
+                }
+
+                for (int i = 0; i < bullets.size; i++) {
+                    if (bullets.get(i).isExpired()) {
+                        bullets.get(i).dispose();
+                        bullets.removeIndex(i);
+                        i--;
+                    } else {
+                        bullets.get(i).update(delta);
+                    }
                 }
             }
 
-            if (enemies.size == 0 && networkMode != NetworkMode.CLIENT) {
-                gameState = GameState.STORE;
-                syncHostGameStateIfNeeded();
-            }
-
-            for (int i = 0; i < bullets.size; i++) {
-                if (bullets.get(i).isExpired()) {
-                    bullets.get(i).dispose();
-                    bullets.removeIndex(i);
-                    i--;
-                } else {
-                    bullets.get(i).update(delta);
-                }
+            if (networkMode == NetworkMode.HOST) {
+                syncHostWorldSnapshot();
             }
         }
     }
@@ -374,6 +403,8 @@ public class Main extends ApplicationAdapter {
         batch.dispose();
         player.dispose();
         map.dispose();
+        networkPlayerBulletTexture.dispose();
+        networkEnemyBulletTexture.dispose();
         stage.dispose();
 
         if (shopUI != null) {
@@ -401,6 +432,11 @@ public class Main extends ApplicationAdapter {
         syncHostGameStateIfNeeded();
         shopUI.randomizeShop();
         shopUI.resetWavePurchases();
+
+        if (networkMode == NetworkMode.CLIENT) {
+            clearWorldCollections();
+            return;
+        }
 
         final List<Supplier<Enemy>> enemyFactory = List.of(
             () -> new Skeleton(0, 0, this),
@@ -562,6 +598,10 @@ public class Main extends ApplicationAdapter {
         }
         if (message.startsWith("STATE ")) {
             handleStateMessage(message);
+            return;
+        }
+        if (message.startsWith("WORLD ")) {
+            handleWorldMessage(message);
             return;
         }
         if (!message.startsWith("SNAPSHOT ")) {
@@ -819,5 +859,236 @@ public class Main extends ApplicationAdapter {
             networkConnected = false;
             lobbyStatus = "Disconnected while syncing state.";
         }
+    }
+
+    public boolean isClientNetworkMode() {
+        return networkMode == NetworkMode.CLIENT;
+    }
+
+    private void syncHostWorldSnapshot() {
+        if (networkMode != NetworkMode.HOST || !networkConnected || networkClient == null || !networkClient.isConnected() || gameState != GameState.PLAYING) {
+            return;
+        }
+
+        StringBuilder payload = new StringBuilder("WORLD ");
+        payload.append(networkClient.getClientId()).append(' ');
+        payload.append(enemies.size).append(' ');
+
+        for (int i = 0; i < enemies.size; i++) {
+            Enemy enemy = enemies.get(i);
+            payload.append(enemyTypeCode(enemy)).append(',')
+                .append(enemy.hitbox.x).append(',')
+                .append(enemy.hitbox.y).append(',')
+                .append(enemy.health).append(' ');
+        }
+
+        payload.append("B ").append(bullets.size).append(' ');
+        for (int i = 0; i < bullets.size; i++) {
+            Bullet bullet = bullets.get(i);
+            payload.append(bullet.getOwner() == Bullet.Owner.PLAYER ? "P" : "E").append(',')
+                .append(bullet.hitbox.x).append(',')
+                .append(bullet.hitbox.y).append(',')
+                .append(bullet.hitbox.width).append(',')
+                .append(bullet.hitbox.height).append(',')
+                .append(bullet.getVelocity().x).append(',')
+                .append(bullet.getVelocity().y).append(',')
+                .append(bullet.getRotation()).append(' ');
+        }
+
+        try {
+            networkClient.sendMessage(payload.toString().trim());
+        } catch (IOException e) {
+            networkConnected = false;
+            lobbyStatus = "Disconnected while syncing world.";
+        }
+    }
+
+    private String enemyTypeCode(Enemy enemy) {
+        if (enemy instanceof Skeleton) {
+            return "K";
+        }
+        if (enemy instanceof Zombie) {
+            return "Z";
+        }
+        return "S";
+    }
+
+    private void handleWorldMessage(String message) {
+        if (networkMode != NetworkMode.CLIENT) {
+            return;
+        }
+        String[] parts = message.split("\\s+");
+        if (parts.length < 4) {
+            return;
+        }
+
+        int index = 1;
+        int enemyCount;
+        try {
+            enemyCount = Integer.parseInt(parts[index++]);
+        } catch (NumberFormatException ignored) {
+            return;
+        }
+
+        List<EnemySnapshot> enemySnapshots = new ArrayList<>();
+        for (int i = 0; i < enemyCount && index < parts.length; i++) {
+            String[] enemyParts = parts[index++].split(",", 4);
+            if (enemyParts.length < 4) {
+                continue;
+            }
+            try {
+                EnemySnapshot snapshot = new EnemySnapshot();
+                snapshot.type = enemyParts[0];
+                snapshot.x = Float.parseFloat(enemyParts[1]);
+                snapshot.y = Float.parseFloat(enemyParts[2]);
+                snapshot.health = Float.parseFloat(enemyParts[3]);
+                enemySnapshots.add(snapshot);
+            } catch (NumberFormatException ignored) {
+                return;
+            }
+        }
+
+        if (index >= parts.length || !"B".equals(parts[index])) {
+            return;
+        }
+        index++;
+        if (index >= parts.length) {
+            return;
+        }
+
+        int bulletCount;
+        try {
+            bulletCount = Integer.parseInt(parts[index++]);
+        } catch (NumberFormatException ignored) {
+            return;
+        }
+
+        List<BulletSnapshot> bulletSnapshots = new ArrayList<>();
+        for (int i = 0; i < bulletCount && index < parts.length; i++) {
+            String[] bulletParts = parts[index++].split(",", 8);
+            if (bulletParts.length < 8) {
+                continue;
+            }
+            try {
+                BulletSnapshot snapshot = new BulletSnapshot();
+                snapshot.owner = bulletParts[0];
+                snapshot.x = Float.parseFloat(bulletParts[1]);
+                snapshot.y = Float.parseFloat(bulletParts[2]);
+                snapshot.width = Float.parseFloat(bulletParts[3]);
+                snapshot.height = Float.parseFloat(bulletParts[4]);
+                snapshot.vx = Float.parseFloat(bulletParts[5]);
+                snapshot.vy = Float.parseFloat(bulletParts[6]);
+                snapshot.rotation = Float.parseFloat(bulletParts[7]);
+                bulletSnapshots.add(snapshot);
+            } catch (NumberFormatException ignored) {
+                return;
+            }
+        }
+
+        Gdx.app.postRunnable(() -> applyWorldSnapshot(enemySnapshots, bulletSnapshots));
+    }
+
+    private void applyWorldSnapshot(List<EnemySnapshot> enemySnapshots, List<BulletSnapshot> bulletSnapshots) {
+        reconcileEnemies(enemySnapshots);
+        reconcileBullets(bulletSnapshots);
+    }
+
+    private void reconcileEnemies(List<EnemySnapshot> snapshots) {
+        for (int i = 0; i < snapshots.size(); i++) {
+            EnemySnapshot snapshot = snapshots.get(i);
+            Enemy enemy = i < enemies.size ? enemies.get(i) : null;
+
+            if (enemy == null || !enemyTypeCode(enemy).equals(snapshot.type)) {
+                if (enemy != null) {
+                    enemy.dispose();
+                    enemies.removeIndex(i);
+                }
+                Enemy created = createEnemyByType(snapshot.type, snapshot.x, snapshot.y);
+                created.health = snapshot.health;
+                enemies.insert(i, created);
+                continue;
+            }
+
+            enemy.hitbox.setPosition(snapshot.x, snapshot.y);
+            enemy.health = snapshot.health;
+        }
+
+        while (enemies.size > snapshots.size()) {
+            Enemy removed = enemies.pop();
+            removed.dispose();
+        }
+    }
+
+    private Enemy createEnemyByType(String type, float x, float y) {
+        if ("K".equals(type)) {
+            return new Skeleton(x, y, this);
+        }
+        if ("Z".equals(type)) {
+            return new Zombie(x, y, this);
+        }
+        return new Slime(x, y, this);
+    }
+
+    private void reconcileBullets(List<BulletSnapshot> snapshots) {
+        for (int i = 0; i < snapshots.size(); i++) {
+            BulletSnapshot snapshot = snapshots.get(i);
+            Bullet bullet = i < bullets.size ? bullets.get(i) : null;
+            Bullet.Owner owner = "P".equals(snapshot.owner) ? Bullet.Owner.PLAYER : Bullet.Owner.ENEMY;
+
+            if (bullet == null || bullet.getOwner() != owner) {
+                if (bullet != null) {
+                    bullet.dispose();
+                    bullets.removeIndex(i);
+                }
+                bullets.insert(i, createBulletFromSnapshot(snapshot, owner));
+                continue;
+            }
+
+            bullet.setPosition(snapshot.x, snapshot.y);
+            bullet.setSize(snapshot.width, snapshot.height);
+            bullet.setVelocity(snapshot.vx, snapshot.vy);
+            bullet.setRotation(snapshot.rotation);
+        }
+
+        while (bullets.size > snapshots.size()) {
+            Bullet removed = bullets.pop();
+            removed.dispose();
+        }
+    }
+
+    private Bullet createBulletFromSnapshot(BulletSnapshot snapshot, Bullet.Owner owner) {
+        Texture texture = owner == Bullet.Owner.PLAYER ? networkPlayerBulletTexture : networkEnemyBulletTexture;
+        Vector2 velocity = new Vector2(snapshot.vx, snapshot.vy);
+        float speed = velocity.len();
+        Vector2 direction = speed == 0f ? new Vector2(1, 0) : new Vector2(velocity).nor();
+
+        Bullet bullet = new Bullet(
+            this,
+            snapshot.x,
+            snapshot.y,
+            direction,
+            texture,
+            (int) snapshot.width,
+            (int) snapshot.height,
+            0f,
+            speed,
+            99999f,
+            owner
+        );
+        bullet.setVelocity(snapshot.vx, snapshot.vy);
+        bullet.setRotation(snapshot.rotation);
+        return bullet;
+    }
+
+    private void clearWorldCollections() {
+        for (int i = 0; i < bullets.size; i++) {
+            bullets.get(i).dispose();
+        }
+        bullets.clear();
+
+        for (int i = 0; i < enemies.size; i++) {
+            enemies.get(i).dispose();
+        }
+        enemies.clear();
     }
 }

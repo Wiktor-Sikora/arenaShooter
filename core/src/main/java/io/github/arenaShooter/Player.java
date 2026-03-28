@@ -137,7 +137,7 @@ public class Player extends Entity {
     public void handleInput(float delta) {
         boolean moving = false;
 
-        if (Gdx.input.isTouched(Input.Buttons.LEFT)) {
+        if (!game.isClientNetworkMode() && Gdx.input.isTouched(Input.Buttons.LEFT)) {
             // changing input cords to world cords
             Vector3 unprojectedCords = game.camera.unproject(new Vector3(Gdx.input.getX(), Gdx.input.getY(), 0f));
             Vector2 direction = new Vector2(unprojectedCords.x - getCenterX(), unprojectedCords.y - getCenterY());
@@ -164,7 +164,7 @@ public class Player extends Entity {
 
         Vector3 mousePos = game.camera.unproject(new Vector3(Gdx.input.getX(), Gdx.input.getY(), 0f));
         Vector2 direction = new Vector2(mousePos.x - getCenterX(), mousePos.y - getCenterY()).nor();
-        if (Gdx.input.isTouched(Input.Buttons.LEFT)) {
+        if (!game.isClientNetworkMode() && Gdx.input.isTouched(Input.Buttons.LEFT)) {
             weapon.shoot(direction);
         }
 

@@ -170,7 +170,7 @@ public class NetworkServer implements Runnable {
 
         while (true) {
             try {
-                byte[] buffer = new byte[512];
+                byte[] buffer = new byte[4096];
                 DatagramPacket packet = new DatagramPacket(buffer, buffer.length);
                 socket.receive(packet);
 
@@ -298,6 +298,18 @@ public class NetworkServer implements Runnable {
                 return;
             }
             broadcast("STATE " + parts[2] + " " + parts[3]);
+            return;
+        }
+
+        if ("WORLD".equalsIgnoreCase(parts[0]) && parts.length >= 2) {
+            String clientId = parts[1];
+            if (!clientId.equals(ownerClientId)) {
+                return;
+            }
+            String prefix = "WORLD " + clientId + " ";
+            if (message.startsWith(prefix)) {
+                broadcast("WORLD " + message.substring(prefix.length()));
+            }
             return;
         }
 
