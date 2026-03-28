@@ -3,7 +3,6 @@ package io.github.arenaShooter;
 import com.badlogic.gdx.ApplicationAdapter;
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.Input;
-import com.badlogic.gdx.graphics.GL20;
 import com.badlogic.gdx.graphics.g2d.BitmapFont;
 import com.badlogic.gdx.graphics.g2d.GlyphLayout;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
@@ -20,16 +19,14 @@ import io.github.arenaShooter.enemies.Enemy;
 import io.github.arenaShooter.enemies.Skeleton;
 import io.github.arenaShooter.enemies.Slime;
 import io.github.arenaShooter.enemies.Zombie;
-import io.github.arenaShooter.ui.HealthBar;
 import io.github.arenaShooter.ui.PlayerHud;
 import io.github.arenaShooter.ui.ShopUI;
 import io.github.arenaShooter.weapons.Bullet;
 
-import java.lang.Math;
 import java.io.*;
-import java.util.Dictionary;
 import java.util.List;
 import java.util.Random;
+import java.util.function.Supplier;
 
 public class Main extends ApplicationAdapter {
     public enum GameState {
@@ -71,7 +68,7 @@ public class Main extends ApplicationAdapter {
         public int goldEarned;
         public int enemiesKilled;
         public int damageTaken;
-    };
+    }
     HighScores scores = new HighScores();
 
     @Override
@@ -332,7 +329,7 @@ public class Main extends ApplicationAdapter {
         shopUI.randomizeShop();
         shopUI.resetWavePurchases();
 
-        final List<java.util.function.Supplier<Enemy>> enemyFactory = List.of(
+        final List<Supplier<Enemy>> enemyFactory = List.of(
             () -> new Skeleton(0, 0, this),
             () -> new Zombie(0, 0, this),
             () -> new Slime(0, 0, this)
@@ -340,7 +337,6 @@ public class Main extends ApplicationAdapter {
 
         float multiplier = 1f + (waveNumber - 1) * 0.1f; // +10% per wave
 
-        // NOWE: Reset statystyk fali
         if (shopUI != null) {
             shopUI.resetStats();
         }
@@ -395,7 +391,8 @@ public class Main extends ApplicationAdapter {
                 scores.enemiesKilled = 0;
                 scores.damageTaken = 0;
                 return;
-            };
+            }
+
             String[] values = currentLine.split(";");
 
             scores.goldEarned = Integer.parseInt(values[0]);
