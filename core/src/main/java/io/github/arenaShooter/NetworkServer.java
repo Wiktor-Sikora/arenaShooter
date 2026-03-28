@@ -68,11 +68,19 @@ public class NetworkServer implements Runnable {
     private final Map<String, SocketAddress> connectedClients = new ConcurrentHashMap<>();
     private final Map<String, Integer> clientPlayerIds = new ConcurrentHashMap<>();
     private final Map<String, Boolean> clientReadyStates = new ConcurrentHashMap<>();
+    private final Map<String, ClientState> clientStates = new ConcurrentHashMap<>();
 
     private volatile long serverTick = 0L;
     private DatagramSocket socket;
     private int nextPlayerId = 1;
     private String ownerClientId;
+
+    private static class ClientState {
+        int playerId;
+        float x;
+        float y;
+        float hp;
+    }
 
     public void enqueueInput(PlayerInput input) {
         if (input != null) {
@@ -105,6 +113,7 @@ public class NetworkServer implements Runnable {
         connectedClients.clear();
         clientPlayerIds.clear();
         clientReadyStates.clear();
+        clientStates.clear();
         ownerClientId = null;
     }
 
@@ -196,12 +205,13 @@ public class NetworkServer implements Runnable {
                 continue;
             }
 
-            if (!players.isEmpty()) {
-                int playerIndex = Math.floorMod(input.playerId, players.size());
-                Player player = players.get(playerIndex);
-                float speed = player.speed;
-                player.hitbox.x += input.moveX * speed * (float) TICK_DT_SECONDS;
-                player.hitbox.y += input.moveY * speed * (float) TICK_DT_SECONDS;
+            for (ClientState state : clientStates.values()) {
+                if (state.playerId == input.playerId) {
+                    float speed = 170f;
+                    state.x += input.moveX * speed * (float) TICK_DT_SECONDS;
+                    state.y += input.moveY * speed * (float) TICK_DT_SECONDS;
+                    break;
+                }
             }
 
             lastProcessedInputTick.put(input.playerId, input.tick);
@@ -228,9 +238,9 @@ public class NetworkServer implements Runnable {
         float min = AREA_OFFSET;
         float max = PLAYABLE_AREA_SIZE - AREA_OFFSET + 100f;
 
-        for (Player player : players) {
-            player.hitbox.x = Math.max(min, Math.min(max, player.hitbox.x));
-            player.hitbox.y = Math.max(min, Math.min(max, player.hitbox.y));
+        for (ClientState state : clientStates.values()) {
+            state.x = Math.max(min, Math.min(max, state.x));
+            state.y = Math.max(min, Math.min(max, state.y));
         }
     }
 
@@ -239,16 +249,34 @@ public class NetworkServer implements Runnable {
             return;
         }
 
-        float x = players.isEmpty() ? 0f : players.get(0).hitbox.x;
-        float y = players.isEmpty() ? 0f : players.get(0).hitbox.y;
-        float hp = players.isEmpty() ? 0f : players.get(0).health;
-
         for (Map.Entry<String, SocketAddress> entry : connectedClients.entrySet()) {
             String clientId = entry.getKey();
             Integer playerId = clientPlayerIds.get(clientId);
             long lastAckTick = playerId == null ? -1L : lastProcessedInputTick.getOrDefault(playerId, -1L);
-            String payload = "SNAPSHOT " + serverTick + " " + x + " " + y + " " + hp + " " + lastAckTick;
-            sendTo(entry.getValue(), payload);
+            ClientState self = clientStates.get(clientId);
+            int selfId = self == null ? -1 : self.playerId;
+            float selfX = self == null ? 0f : self.x;
+            float selfY = self == null ? 0f : self.y;
+            float selfHp = self == null ? 0f : self.hp;
+
+            StringBuilder payload = new StringBuilder("SNAPSHOT ")
+                .append(serverTick).append(' ')
+                .append(selfId).append(' ')
+                .append(selfX).append(' ')
+                .append(selfY).append(' ')
+                .append(selfHp).append(' ')
+                .append(lastAckTick).append(' ')
+                .append(clientStates.size());
+
+            for (ClientState state : clientStates.values()) {
+                payload.append(' ')
+                    .append(state.playerId).append(',')
+                    .append(state.x).append(',')
+                    .append(state.y).append(',')
+                    .append(state.hp);
+            }
+
+            sendTo(entry.getValue(), payload.toString());
         }
     }
 
@@ -263,6 +291,14 @@ public class NetworkServer implements Runnable {
             connectedClients.put(clientId, sender);
             int playerId = clientPlayerIds.computeIfAbsent(clientId, key -> nextPlayerId++);
             clientReadyStates.put(clientId, false);
+            clientStates.computeIfAbsent(clientId, key -> {
+                ClientState state = new ClientState();
+                state.playerId = playerId;
+                state.x = AREA_OFFSET + PLAYABLE_AREA_SIZE / 2f;
+                state.y = AREA_OFFSET + PLAYABLE_AREA_SIZE / 2f;
+                state.hp = 100f;
+                return state;
+            });
             if (ownerClientId == null) {
                 ownerClientId = clientId;
             }

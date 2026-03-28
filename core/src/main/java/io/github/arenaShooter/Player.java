@@ -48,7 +48,7 @@ public class Player extends Entity {
         this.maxHealth = 100;
         this.health = 100;
 
-        this.speed = 85f;
+        this.speed = 170f;
         this.game = game;
 
         this.weapon = new Gun(game);
@@ -136,6 +136,7 @@ public class Player extends Entity {
 
     public void handleInput(float delta) {
         boolean moving = false;
+        boolean localMovementAllowed = !game.isClientNetworkMode();
 
         if (!game.isClientNetworkMode() && Gdx.input.isTouched(Input.Buttons.LEFT)) {
             // changing input cords to world cords
@@ -145,19 +146,19 @@ public class Player extends Entity {
             weapon.shoot(direction);
         }
 
-        if (Gdx.input.isKeyPressed(Input.Keys.W)) {
+        if (localMovementAllowed && Gdx.input.isKeyPressed(Input.Keys.W)) {
             hitbox.setY(hitbox.getY() + speed * delta);
             moving = true;
         }
-        if (Gdx.input.isKeyPressed(Input.Keys.S)) {
+        if (localMovementAllowed && Gdx.input.isKeyPressed(Input.Keys.S)) {
             hitbox.setY(hitbox.getY() - speed * delta);
             moving = true;
         }
-        if (Gdx.input.isKeyPressed(Input.Keys.A)) {
+        if (localMovementAllowed && Gdx.input.isKeyPressed(Input.Keys.A)) {
             hitbox.setX(hitbox.getX() - speed * delta);
             moving = true;
         }
-        if (Gdx.input.isKeyPressed(Input.Keys.D)) {
+        if (localMovementAllowed && Gdx.input.isKeyPressed(Input.Keys.D)) {
             hitbox.setX(hitbox.getX() + speed * delta);
             moving = true;
         }

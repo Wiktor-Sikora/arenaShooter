@@ -36,8 +36,10 @@ import java.io.IOException;
 import java.net.SocketException;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.Map;
 import java.util.List;
 import java.util.Random;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.function.Supplier;
 
@@ -125,6 +127,16 @@ public class Main extends ApplicationAdapter {
         float rotation;
     }
 
+    private static class RemotePlayerSnapshot {
+        int id;
+        float x;
+        float y;
+        float hp;
+    }
+
+    private final Map<Integer, RemotePlayerSnapshot> remotePlayers = new ConcurrentHashMap<>();
+    private Texture remotePlayerTexture;
+
     HighScores scores = new HighScores();
 
     @Override
@@ -151,6 +163,7 @@ public class Main extends ApplicationAdapter {
         shapeRenderer = new ShapeRenderer();
 
         map = new Texture("map.png");
+        remotePlayerTexture = new Texture("player.png");
         networkPlayerBulletTexture = new Texture("bullet.png");
         networkEnemyBulletTexture = new Texture("bone.png");
 
@@ -207,7 +220,6 @@ public class Main extends ApplicationAdapter {
         }
 
         if (gameState == GameState.PLAYING) {
-            player.handleInput(delta);
             sendNetworkInput();
             return;
         } else if (gameState == GameState.DEAD) {
@@ -331,6 +343,7 @@ public class Main extends ApplicationAdapter {
 
         if (gameState == GameState.PLAYING) {
             player.render(batch);
+            renderRemotePlayers(batch);
             for (int i = 0; i < enemies.size; i++) {
                 enemies.get(i).render(batch);
             }
@@ -344,11 +357,13 @@ public class Main extends ApplicationAdapter {
             playerHud.render();
         } else if (gameState == GameState.STORE && shopUI != null) {
             player.render(batch);
+            renderRemotePlayers(batch);
             batch.end();
             stage.draw();
             playerHud.render();
             shopUI.render();
         } else if (gameState == GameState.DEAD) {
+            renderRemotePlayers(batch);
             for (int i = 0; i < enemies.size; i++) {
                 enemies.get(i).render(batch);
             }
@@ -403,6 +418,7 @@ public class Main extends ApplicationAdapter {
         batch.dispose();
         player.dispose();
         map.dispose();
+        remotePlayerTexture.dispose();
         networkPlayerBulletTexture.dispose();
         networkEnemyBulletTexture.dispose();
         stage.dispose();
@@ -555,10 +571,6 @@ public class Main extends ApplicationAdapter {
         if (!networkConnected || networkClient == null || !networkClient.isConnected()) {
             return;
         }
-        if (networkMode == NetworkMode.HOST) {
-            // Host player is already simulated locally; avoid applying movement twice.
-            return;
-        }
 
         float moveX = 0f;
         float moveY = 0f;
@@ -608,20 +620,7 @@ public class Main extends ApplicationAdapter {
             return;
         }
 
-        String[] parts = message.split("\\s+");
-        if (parts.length < 6) {
-            return;
-        }
-
-        if (networkMode == NetworkMode.CLIENT && gameState == GameState.PLAYING) {
-            try {
-                player.hitbox.x = Float.parseFloat(parts[2]);
-                player.hitbox.y = Float.parseFloat(parts[3]);
-                player.health = Float.parseFloat(parts[4]);
-            } catch (NumberFormatException ignored) {
-                // Ignore malformed snapshot payloads.
-            }
-        }
+        handleSnapshotMessage(message);
     }
 
     private int parsePort(String rawPort, int defaultPort) {
@@ -647,6 +646,7 @@ public class Main extends ApplicationAdapter {
         networkInputTick = 0L;
         lobbyLocalReady = false;
         lobbyPlayers.clear();
+        remotePlayers.clear();
         lobbyStatus = "Connecting...";
 
         networkClient = new NetworkClient();
@@ -654,7 +654,6 @@ public class Main extends ApplicationAdapter {
 
         if (networkMode == NetworkMode.HOST) {
             networkServer = new NetworkServer();
-            networkServer.players.add(player);
             try {
                 networkServer.start(menu.getPort());
                 networkServerThread = new Thread(networkServer, "network-server");
@@ -1090,5 +1089,78 @@ public class Main extends ApplicationAdapter {
             enemies.get(i).dispose();
         }
         enemies.clear();
+    }
+
+    private void handleSnapshotMessage(String message) {
+        if (networkClient == null || gameState != GameState.PLAYING) {
+            return;
+        }
+
+        String[] parts = message.split("\\s+");
+        if (parts.length < 8) {
+            return;
+        }
+
+        int index = 1;
+        int selfId;
+        float selfX;
+        float selfY;
+        float selfHp;
+        try {
+            index++; // server tick, currently unused
+            selfId = Integer.parseInt(parts[index++]);
+            selfX = Float.parseFloat(parts[index++]);
+            selfY = Float.parseFloat(parts[index++]);
+            selfHp = Float.parseFloat(parts[index++]);
+            index++; // lastAckTick
+        } catch (NumberFormatException ignored) {
+            return;
+        }
+
+        int playersCount;
+        try {
+            playersCount = Integer.parseInt(parts[index++]);
+        } catch (NumberFormatException ignored) {
+            return;
+        }
+
+        List<RemotePlayerSnapshot> parsed = new ArrayList<>();
+        for (int i = 0; i < playersCount && index < parts.length; i++) {
+            String[] p = parts[index++].split(",", 4);
+            if (p.length < 4) {
+                continue;
+            }
+            try {
+                RemotePlayerSnapshot snapshot = new RemotePlayerSnapshot();
+                snapshot.id = Integer.parseInt(p[0]);
+                snapshot.x = Float.parseFloat(p[1]);
+                snapshot.y = Float.parseFloat(p[2]);
+                snapshot.hp = Float.parseFloat(p[3]);
+                parsed.add(snapshot);
+            } catch (NumberFormatException ignored) {
+                return;
+            }
+        }
+
+        Gdx.app.postRunnable(() -> {
+            if (networkMode == NetworkMode.CLIENT) {
+                player.hitbox.x = selfX;
+                player.hitbox.y = selfY;
+                player.health = selfHp;
+            }
+
+            remotePlayers.clear();
+            for (RemotePlayerSnapshot snapshot : parsed) {
+                if (snapshot.id != selfId) {
+                    remotePlayers.put(snapshot.id, snapshot);
+                }
+            }
+        });
+    }
+
+    private void renderRemotePlayers(SpriteBatch batch) {
+        for (RemotePlayerSnapshot remote : remotePlayers.values()) {
+            batch.draw(remotePlayerTexture, remote.x - 16f, remote.y - 16f, 32f, 32f);
+        }
     }
 }

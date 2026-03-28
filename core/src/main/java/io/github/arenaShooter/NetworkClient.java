@@ -31,6 +31,7 @@ public class NetworkClient {
     private DatagramSocket socket;
     private InetAddress serverAddress;
     private int serverPort;
+    private int playerId = -1;
     private Thread listenThread;
 
     public boolean connect(String host, int port) throws IOException {
@@ -63,6 +64,14 @@ public class NetworkClient {
                 disconnect();
                 return false;
             }
+            String[] parts = response.split("\\s+");
+            if (parts.length >= 2) {
+                try {
+                    playerId = Integer.parseInt(parts[1]);
+                } catch (NumberFormatException ignored) {
+                    playerId = -1;
+                }
+            }
         } catch (SocketTimeoutException timeout) {
             disconnect();
             return false;
@@ -90,6 +99,7 @@ public class NetworkClient {
         socket = null;
         serverAddress = null;
         serverPort = 0;
+        playerId = -1;
     }
 
     public void sendMessage(String message) throws IOException {
@@ -116,6 +126,10 @@ public class NetworkClient {
 
     public String getClientId() {
         return clientId;
+    }
+
+    public int getPlayerId() {
+        return playerId;
     }
 
     public void addMessageListener(MessageListener listener) {
