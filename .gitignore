@@ -165,3 +165,7 @@ Thumbs.db
 
 ## score file
 /assets/score.txt
+
+## Database
+
+score.db

@@ -9,9 +9,10 @@ import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.graphics.g2d.BitmapFont;
 import com.badlogic.gdx.graphics.g2d.GlyphLayout;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
+import io.github.arenaShooter.Main;
 
 public class Menu {
-    public enum StartMode {
+    public enum NetworkMode {
         NONE,
         HOST,
         CLIENT
@@ -31,8 +32,11 @@ public class Menu {
     private EditField editField = EditField.HOST;
     private Texture backgroundTexture;
     private Texture whitePixel;
+    public Main main;
+    public NetworkMode startMode = null;
 
-    public Menu(String initialClientHost, String hostingHost, int initialPort) {
+    public Menu(Main main, String initialClientHost, String hostingHost, int initialPort) {
+        this.main = main;
         this.hostingHost = hostingHost;
         this.clientHost = initialClientHost;
         this.hostInput = initialClientHost;
@@ -48,34 +52,46 @@ public class Menu {
         pixmap.dispose();
     }
 
-    public StartMode pollStartMode() {
+    public void handleInput() {
         if (Gdx.input.isKeyJustPressed(Input.Keys.TAB)) {
             editField = editField == EditField.HOST ? EditField.PORT : EditField.HOST;
-            return StartMode.NONE;
         }
+
+        if (Gdx.input.isKeyJustPressed(Input.Keys.F3)) {
+            main.scoreboardMenu.loadHighScores(); // top 10 scores
+            main.gameState = Main.GameState.SCOREBOARD;
+            return;
+        }
+
 
         if (Gdx.input.isKeyJustPressed(Input.Keys.BACKSPACE)) {
             removeLastCharacter();
-            return StartMode.NONE;
         }
 
         if (Gdx.input.isKeyJustPressed(Input.Keys.F1)) {
             if (!applyPortSettings()) {
-                return StartMode.NONE;
+                startMode = NetworkMode.NONE;
+                return;
             }
             status = "Starting host on " + hostingHost + ":" + port + "...";
-            return StartMode.HOST;
+            startMode = NetworkMode.HOST;
+
+            main.startFromMenu(this.startMode);
         }
 
         if (Gdx.input.isKeyJustPressed(Input.Keys.F2)) {
             if (!applyClientSettings()) {
-                return StartMode.NONE;
+                startMode = NetworkMode.NONE;
+                return;
             }
+
             status = "Connecting to " + clientHost + ":" + port + "...";
-            return StartMode.CLIENT;
+            startMode = NetworkMode.CLIENT;
         }
 
-        return StartMode.NONE;
+        if (Gdx.input.isKeyJustPressed(Input.Keys.ENTER) && startMode != null) {
+            main.startFromMenu(this.startMode);
+        }
     }
 
     public boolean handleCharacter(char character) {

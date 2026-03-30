@@ -108,14 +108,14 @@ public class ScoreboardMenu {
             currentY -= 30;
         }
 
-        drawCenteredText(batch, font, layout, camera, "[F3] Return", centerY - 200, 1.2f);
+        drawCenteredText(batch, font, layout, camera, "[Q] Return", centerY - 200, 1.2f);
 
         batch.end();
     }
 
     // Return by pressing F3
     public boolean handleInput() {
-        if (Gdx.input.isKeyJustPressed(com.badlogic.gdx.Input.Keys.F3)) {
+        if (Gdx.input.isKeyJustPressed(com.badlogic.gdx.Input.Keys.Q)) {
             return true;
         }
         return false;
