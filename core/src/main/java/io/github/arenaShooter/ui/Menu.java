@@ -4,6 +4,8 @@ import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.Input;
 import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.OrthographicCamera;
+import com.badlogic.gdx.graphics.Pixmap;
+import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.graphics.g2d.BitmapFont;
 import com.badlogic.gdx.graphics.g2d.GlyphLayout;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
@@ -27,6 +29,8 @@ public class Menu {
     private int port;
     private String status;
     private EditField editField = EditField.HOST;
+    private Texture backgroundTexture;
+    private Texture whitePixel;
 
     public Menu(String initialClientHost, String hostingHost, int initialPort) {
         this.hostingHost = hostingHost;
@@ -34,7 +38,14 @@ public class Menu {
         this.hostInput = initialClientHost;
         this.port = initialPort;
         this.portInput = String.valueOf(initialPort);
-        this.status = "TAB switch field, type value. F1 Host, F2 Join";
+        this.status = "TAB switch field, type value. F1 Host, F2 Join, F3 Scoreboard";
+        backgroundTexture = new Texture("menu.png");
+
+        Pixmap pixmap = new Pixmap(1, 1, Pixmap.Format.RGBA8888);
+        pixmap.setColor(Color.WHITE);
+        pixmap.fill();
+        whitePixel = new Texture(pixmap);
+        pixmap.dispose();
     }
 
     public StartMode pollStartMode() {
@@ -92,11 +103,27 @@ public class Menu {
         batch.setProjectionMatrix(camera.combined);
         batch.begin();
 
-        float centerY = camera.position.y;
-        font.setColor(Color.WHITE);
-        drawCenteredText(batch, font, layout, camera, "Arena Shooter", centerY + 140, 2.5f);
+        batch.draw(backgroundTexture,
+            camera.position.x - camera.viewportWidth / 2f,
+            camera.position.y - camera.viewportHeight / 2f,
+            camera.viewportWidth, camera.viewportHeight);
 
-        font.setColor(Color.LIGHT_GRAY);
+        float centerY = camera.position.y;
+
+        batch.setColor(0, 0, 0, 0.5f);
+        float rectTop = centerY + 85 + 15;
+        float rectBottom = centerY - 100 - 30;
+        float rectHeight = rectTop - rectBottom;
+
+        float rectWidth = 430;
+        float rectX = camera.position.x - rectWidth / 2f;
+        float rectY = rectBottom;
+
+        batch.draw(whitePixel, rectX, rectY, rectWidth, rectHeight);
+        batch.setColor(1, 1, 1, 1f);
+
+
+        font.setColor(Color.WHITE);
         drawCenteredText(batch, font, layout, camera, "Host IP (fixed for server): " + hostingHost, centerY + 85, 1.0f);
         drawCenteredText(batch, font, layout, camera,
             (editField == EditField.HOST ? "> " : "") + "Client target IP: " + hostInput, centerY + 55, 1.1f);
@@ -104,6 +131,7 @@ public class Menu {
             (editField == EditField.PORT ? "> " : "") + "Port: " + portInput, centerY + 30, 1.1f);
         drawCenteredText(batch, font, layout, camera, "[F1] Create Server", centerY + 5, 1.3f);
         drawCenteredText(batch, font, layout, camera, "[F2] Connect To Server", centerY - 25, 1.3f);
+        drawCenteredText(batch, font, layout, camera, "[F3] Scoreboard", centerY - 55, 1.3f);
         drawCenteredText(batch, font, layout, camera, status, centerY - 100, 1.0f);
 
         batch.end();

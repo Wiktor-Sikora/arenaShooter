@@ -29,8 +29,9 @@ import io.github.arenaShooter.ui.LobbyMenu;
 import io.github.arenaShooter.ui.PlayerHud;
 import io.github.arenaShooter.ui.ShopUI;
 import io.github.arenaShooter.ui.Menu;
+import io.github.arenaShooter.ui.ScoreboardMenu;
 import io.github.arenaShooter.weapons.Bullet;
-
+import io.github.arenaShooter.DatabaseManager;
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.FileReader;
@@ -55,6 +56,7 @@ public class Main extends ApplicationAdapter {
 
     public enum GameState {
         MENU,
+        SCOREBOARD,
         LOBBY,
         PLAYING,
         PAUSED,
@@ -71,6 +73,9 @@ public class Main extends ApplicationAdapter {
     private BitmapFont font;
     private GlyphLayout layout;
 
+    private DatabaseManager db;
+
+
     public ShapeRenderer shapeRenderer;
 
     private final float MAP_TEXTURE_SIZE = 1500;
@@ -81,8 +86,6 @@ public class Main extends ApplicationAdapter {
     float WORLD_HEIGHT = 1500f;
 
     private static final int GOLD_PER_KILL = 30;
-
-    private final String SCORE_FILE_NAME = "score.txt";
 
     public Player player;
     public PlayerHud playerHud;
@@ -103,6 +106,7 @@ public class Main extends ApplicationAdapter {
     private boolean networkConnected = false;
     private long networkInputTick = 0L;
     private Menu menu;
+    private ScoreboardMenu scoreboardMenu;
     private LobbyMenu lobbyMenu;
     private final CopyOnWriteArrayList<LobbyMenu.LobbyPlayer> lobbyPlayers = new CopyOnWriteArrayList<>();
     private boolean lobbyLocalReady = false;
@@ -167,6 +171,7 @@ public class Main extends ApplicationAdapter {
         shapeRenderer = new ShapeRenderer();
 
         map = new Texture("map.png");
+
         networkPlayerBulletTexture = new Texture("bullet.png");
         networkEnemyBulletTexture = new Texture("bone.png");
         remotePlayerAtlas = new TextureAtlas(Gdx.files.internal("player.atlas"));
@@ -186,6 +191,9 @@ public class Main extends ApplicationAdapter {
         String defaultClientHost = System.getProperty("arena.network.host", "127.0.0.1");
         int defaultPort = parsePort(System.getProperty("arena.network.port", "7777"), 7777);
         menu = new Menu(defaultClientHost, resolveLocalHostingIp(), defaultPort);
+        db = new DatabaseManager();
+        scoreboardMenu = new ScoreboardMenu(db, font, layout, camera);
+        scoreboardMenu.loadHighScores();
         lobbyMenu = new LobbyMenu();
     }
 
@@ -200,16 +208,30 @@ public class Main extends ApplicationAdapter {
         float delta = Gdx.graphics.getDeltaTime();
 
         if (gameState == GameState.MENU) {
+            if (Gdx.input.isKeyJustPressed(Input.Keys.F3)) {
+                scoreboardMenu.loadHighScores(); // top 10 scores
+                gameState = GameState.SCOREBOARD;
+                return;
+            }
+
             Menu.StartMode startMode = menu.pollStartMode();
             if (startMode == Menu.StartMode.HOST) {
                 startFromMenu(NetworkMode.HOST);
+                return;
             } else if (startMode == Menu.StartMode.CLIENT) {
                 startFromMenu(NetworkMode.CLIENT);
+                return;
+            }
+        }
+
+        if (gameState == GameState.SCOREBOARD) {
+            if (scoreboardMenu.handleInput()) {
+                gameState = GameState.MENU;
             }
             return;
         }
 
-        if (gameState == GameState.LOBBY) {
+            if (gameState == GameState.LOBBY) {
             handleLobbyInput();
             return;
         }
@@ -230,6 +252,9 @@ public class Main extends ApplicationAdapter {
         } else if (gameState == GameState.DEAD) {
             if (Gdx.input.isKeyJustPressed(Input.Keys.ENTER)) restartGame();
             if (Gdx.input.isKeyJustPressed(Input.Keys.ESCAPE)) Gdx.app.exit();
+            if (Gdx.input.isKeyJustPressed(Input.Keys.Q)) {
+                returnToMenu();
+            }
         } else if (gameState == GameState.STORE) {
 
             if (Gdx.input.isKeyJustPressed(Input.Keys.ENTER)) {
@@ -261,11 +286,12 @@ public class Main extends ApplicationAdapter {
                 gameState = GameState.DEAD;
                 syncHostGameStateIfNeeded();
                 try {
-                    this.loadScore();
                     this.saveScore();
+                    this.loadScore();
                 } catch (IOException e) {
                     e.printStackTrace();
                 }
+
             }
 
             if (networkMode != NetworkMode.CLIENT) {
@@ -317,6 +343,12 @@ public class Main extends ApplicationAdapter {
             menu.render(batch, font, layout, camera);
             return;
         }
+
+        if (gameState == GameState.SCOREBOARD) {
+            scoreboardMenu.render(batch);
+            return;
+        }
+
         if (gameState == GameState.LOBBY) {
             lobbyMenu.render(batch, font, layout, camera, networkMode == NetworkMode.HOST, lobbyLocalReady, lobbyPlayers, lobbyStatus);
             return;
@@ -380,15 +412,16 @@ public class Main extends ApplicationAdapter {
             float centerY = camera.position.y;
 
             font.setColor(Color.RED);
-            drawCenteredText("You are dead", centerY + 10, 5f);
+            drawCenteredText("You are dead", centerY + 20, 5f);
 
             font.setColor(Color.LIGHT_GRAY);
             drawCenteredText("Press [Enter] to restart", centerY - 55, 1.2f);
-            drawCenteredText("Press [Esc] to quit", centerY - 75, 1.2f);
+            drawCenteredText("Press [Esc] to quit", centerY - 80, 1.2f);
+            drawCenteredText("Press [q] to return to menu", centerY - 105, 1.2f);
 
-            drawCenteredText(String.format("Gold earned: %d / %d", player.goldEarned, scores.goldEarned), centerY - 110, 1.2f);
-            drawCenteredText(String.format("Enemies killed: %d / %d", player.enemiesKilled, scores.enemiesKilled), centerY - 130, 1.2f);
-            drawCenteredText(String.format("Damage taken: %d / %d", player.dmgTaken, scores.damageTaken), centerY - 150, 1.2f);
+            drawCenteredText(String.format("Gold earned: %d / %d", player.goldEarned, scores.goldEarned), centerY - 130, 1.2f);
+            drawCenteredText(String.format("Enemies killed: %d / %d", player.enemiesKilled, scores.enemiesKilled), centerY - 150, 1.2f);
+            drawCenteredText(String.format("Damage taken: %d / %d", player.dmgTaken, scores.damageTaken), centerY - 170, 1.2f);
 
             batch.end();
             stage.draw();
@@ -427,6 +460,10 @@ public class Main extends ApplicationAdapter {
         networkEnemyBulletTexture.dispose();
         remotePlayerAtlas.dispose();
         stage.dispose();
+
+        if (db != null) {
+            db.close();
+        }
 
         if (shopUI != null) {
             shopUI.dispose();
@@ -501,36 +538,39 @@ public class Main extends ApplicationAdapter {
     }
 
     private void saveScore() throws IOException {
-        BufferedWriter writer = new BufferedWriter(new FileWriter(SCORE_FILE_NAME));
-
-        writer.write(String.format("%d;", Math.max(player.goldEarned, scores.goldEarned)));
-        writer.write(String.format("%d;", Math.max(player.enemiesKilled, scores.enemiesKilled)));
-        writer.write(String.format("%d", Math.max(player.dmgTaken, scores.damageTaken)));
-
-        writer.close();
+        try {
+            db.saveScore(player.goldEarned, player.enemiesKilled, player.dmgTaken);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
     }
 
     private void loadScore() {
         try {
-            BufferedReader reader = new BufferedReader(new FileReader(SCORE_FILE_NAME));
-            String currentLine = reader.readLine();
-            reader.close();
+            List<String> list = db.getHighScores();
 
-            if (currentLine == null) {
-                scores.goldEarned = 0;
-                scores.enemiesKilled = 0;
-                scores.damageTaken = 0;
-                return;
+            if (list == null || list.isEmpty()) return;
+
+            list.sort((a, b) -> {
+                int goldA = Integer.parseInt(a.split(" ")[1].replace(",", ""));
+                int goldB = Integer.parseInt(b.split(" ")[1].replace(",", ""));
+                return Integer.compare(goldB, goldA);
+            });
+
+            String best = list.get(0);
+            String[] parts = best.split(" ");
+
+            if (parts.length >= 4) {
+                scores.goldEarned = Integer.parseInt(parts[1].replace(",", ""));
+                scores.enemiesKilled = Integer.parseInt(parts[2].replace(",", ""));
+                scores.damageTaken = Integer.parseInt(parts[3].replace(",", ""));
             }
 
-            String[] values = currentLine.split(";");
-
-            scores.goldEarned = Integer.parseInt(values[0]);
-            scores.enemiesKilled = Integer.parseInt(values[1]);
-            scores.damageTaken = Integer.parseInt(values[2]);
-        } catch (IOException e) {
+        } catch (Exception e) {
+            e.printStackTrace();
         }
     }
+
 
     private void restartGame() {
         player.dispose();
@@ -552,6 +592,35 @@ public class Main extends ApplicationAdapter {
         }
 
         startNextWave();
+    }
+
+    private void returnToMenu() {
+        player.dispose();
+        player = new Player(AREA_OFFSET + PLAYABLE_AREA_SIZE / 2, AREA_OFFSET + PLAYABLE_AREA_SIZE / 2, this);
+        shopUI.dispose();
+        shopUI = new ShopUI(this);
+        waveNumber = 0;
+
+        for (int i = 0; i < bullets.size; i++) {
+            bullets.get(i).dispose();
+            bullets.removeIndex(i);
+            i--;
+        }
+
+        for (int i = 0; i < enemies.size; i++) {
+            enemies.get(i).dispose();
+            enemies.removeIndex(i);
+            i--;
+        }
+
+        // reset camera
+        float centerX = MAP_TEXTURE_SIZE / 2f;
+        float centerY = MAP_TEXTURE_SIZE / 2f;
+        camera.position.set(centerX, centerY, 0);
+        camera.zoom = 1.0f;
+        camera.update();
+
+        gameState = GameState.MENU;
     }
 
     private void shutdownNetworking() {

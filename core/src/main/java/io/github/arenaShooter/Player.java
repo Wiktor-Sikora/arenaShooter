@@ -16,7 +16,7 @@ import io.github.arenaShooter.weapons.Gun;
 import io.github.arenaShooter.weapons.Weapon;
 
 
-public class Player extends Entity {
+public class  Player extends Entity {
     public float speed;
     public boolean alive = true;
 
