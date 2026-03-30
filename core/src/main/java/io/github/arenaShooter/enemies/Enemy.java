@@ -42,7 +42,7 @@ public abstract class Enemy extends Entity {
     }
 
     public boolean checkPlayerCollision() {
-        return this.hitbox.overlaps(game.player.hitbox);
+        return game.isAnyPlayerOverlapping(this.hitbox);
     }
     public boolean isDeathAnimationFinished() {
         return stateTime > deathAnimation.getAnimationDuration();

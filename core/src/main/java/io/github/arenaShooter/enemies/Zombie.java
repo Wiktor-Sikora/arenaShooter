@@ -62,11 +62,12 @@ public class Zombie extends Enemy {
     public void update(float delta) {
         stateTime += delta;
 
-        float dx = game.player.hitbox.getX() - hitbox.getX();
-        float dy = game.player.hitbox.getY() - hitbox.getY();
+        Vector2 targetCenter = game.getClosestPlayerCenter(getCenterX(), getCenterY());
+        float dx = targetCenter.x - hitbox.getX();
+        float dy = targetCenter.y - hitbox.getY();
         float distanceToPlayer = (float) Math.sqrt(dx * dx + dy * dy);
 
-        flipped = (game.player.hitbox.getX() < hitbox.getX());
+        flipped = (targetCenter.x < hitbox.getX());
 
         switch (state) {
             case WALK:
@@ -87,7 +88,7 @@ public class Zombie extends Enemy {
 
                 if (frameIndex == 1 && !hasDealtDamageThisAttack) {
                     if (distanceToPlayer <= range) {
-                        game.player.takeDamage(this.damage);
+                        game.damageClosestLocalPlayerIfTargeted(getCenterX(), getCenterY(), this.damage);
                     }
                     hasDealtDamageThisAttack = true;
                 }

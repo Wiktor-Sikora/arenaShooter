@@ -134,8 +134,13 @@ public class Bullet {
 
     public Vector2 getVelocity() { return new Vector2(velocity); }
     public float getRotation() { return rotation; }
+    public Owner getOwner() { return owner; }
 
     public void setRotationSpeed(float rotationSpeed) { this.rotationSpeed = rotationSpeed; }
+    public void setRotation(float rotation) { this.rotation = rotation; }
+    public void setVelocity(float vx, float vy) { this.velocity.set(vx, vy); }
+    public void setPosition(float x, float y) { this.hitbox.setPosition(x, y); }
+    public void setSize(float width, float height) { this.hitbox.setSize(width, height); }
     public float getCenterX() { return hitbox.x + hitbox.width / 2;}
     public float getCenterY() { return hitbox.y + hitbox.height / 2;}
 
