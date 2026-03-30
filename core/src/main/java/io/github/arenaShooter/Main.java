@@ -48,12 +48,6 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.function.Supplier;
 
 public class Main extends ApplicationAdapter {
-    private enum NetworkMode {
-        OFFLINE,
-        HOST,
-        CLIENT
-    }
-
     public enum GameState {
         MENU,
         SCOREBOARD,
@@ -99,18 +93,17 @@ public class Main extends ApplicationAdapter {
         public int damageTaken;
     }
 
-    private NetworkMode networkMode = NetworkMode.OFFLINE;
     private NetworkServer networkServer;
     private NetworkClient networkClient;
     private Thread networkServerThread;
     private boolean networkConnected = false;
     private long networkInputTick = 0L;
-    private Menu menu;
-    private ScoreboardMenu scoreboardMenu;
+    public Menu menu;
+    public ScoreboardMenu scoreboardMenu;
     private LobbyMenu lobbyMenu;
     private final CopyOnWriteArrayList<LobbyMenu.LobbyPlayer> lobbyPlayers = new CopyOnWriteArrayList<>();
-    private boolean lobbyLocalReady = false;
-    private String lobbyStatus = "Waiting for lobby state...";
+    public boolean lobbyLocalReady = false;
+    public String lobbyStatus = "Waiting for lobby state...";
     private GameState lastSyncedHostState = null;
     private int lastSyncedHostWave = -1;
     private Texture networkPlayerBulletTexture;
@@ -190,11 +183,10 @@ public class Main extends ApplicationAdapter {
 
         String defaultClientHost = System.getProperty("arena.network.host", "127.0.0.1");
         int defaultPort = parsePort(System.getProperty("arena.network.port", "7777"), 7777);
-        menu = new Menu(defaultClientHost, resolveLocalHostingIp(), defaultPort);
+        menu = new Menu(this, defaultClientHost, resolveLocalHostingIp(), defaultPort);
         db = new DatabaseManager();
         scoreboardMenu = new ScoreboardMenu(db, font, layout, camera);
         scoreboardMenu.loadHighScores();
-        lobbyMenu = new LobbyMenu();
     }
 
     @Override
@@ -208,20 +200,7 @@ public class Main extends ApplicationAdapter {
         float delta = Gdx.graphics.getDeltaTime();
 
         if (gameState == GameState.MENU) {
-            if (Gdx.input.isKeyJustPressed(Input.Keys.F3)) {
-                scoreboardMenu.loadHighScores(); // top 10 scores
-                gameState = GameState.SCOREBOARD;
-                return;
-            }
-
-            Menu.StartMode startMode = menu.pollStartMode();
-            if (startMode == Menu.StartMode.HOST) {
-                startFromMenu(NetworkMode.HOST);
-                return;
-            } else if (startMode == Menu.StartMode.CLIENT) {
-                startFromMenu(NetworkMode.CLIENT);
-                return;
-            }
+            menu.handleInput();
         }
 
         if (gameState == GameState.SCOREBOARD) {
@@ -231,8 +210,8 @@ public class Main extends ApplicationAdapter {
             return;
         }
 
-            if (gameState == GameState.LOBBY) {
-            handleLobbyInput();
+        if (gameState == GameState.LOBBY) {
+            lobbyMenu.handleInput();
             return;
         }
 
@@ -294,7 +273,7 @@ public class Main extends ApplicationAdapter {
 
             }
 
-            if (networkMode != NetworkMode.CLIENT) {
+            if (menu.startMode != Menu.NetworkMode.CLIENT) {
                 for (int i = 0; i < enemies.size; i++) {
                     if (enemies.get(i).isDisposable()) {
                         player.gold += GOLD_PER_KILL;
@@ -330,7 +309,7 @@ public class Main extends ApplicationAdapter {
                 }
             }
 
-            if (networkMode == NetworkMode.HOST) {
+            if (menu.startMode == Menu.NetworkMode.HOST) {
                 syncHostWorldSnapshot();
             }
         }
@@ -350,7 +329,7 @@ public class Main extends ApplicationAdapter {
         }
 
         if (gameState == GameState.LOBBY) {
-            lobbyMenu.render(batch, font, layout, camera, networkMode == NetworkMode.HOST, lobbyLocalReady, lobbyPlayers, lobbyStatus);
+            lobbyMenu.render(batch, font, layout, camera, menu.startMode == Menu.NetworkMode.HOST, lobbyLocalReady, lobbyPlayers, lobbyStatus);
             return;
         }
 
@@ -491,7 +470,7 @@ public class Main extends ApplicationAdapter {
         shopUI.randomizeShop();
         shopUI.resetWavePurchases();
 
-        if (networkMode == NetworkMode.CLIENT) {
+        if (menu.startMode == Menu.NetworkMode.CLIENT) {
             clearWorldCollections();
             return;
         }
@@ -508,7 +487,7 @@ public class Main extends ApplicationAdapter {
             shopUI.resetStats();
         }
 
-        int enemiesToSpawn = 2 + (waveNumber * 2);
+        int enemiesToSpawn = 2 + (waveNumber * 2 * (remotePlayers.size() + 1));
 
         for (int i = 0; i < enemiesToSpawn; i++) {
             float distanceToPlayer = 0;
@@ -713,9 +692,8 @@ public class Main extends ApplicationAdapter {
         return defaultPort;
     }
 
-    private void startFromMenu(NetworkMode selectedMode) {
+    public void startFromMenu(Menu.NetworkMode selectedMode) {
         shutdownNetworking();
-        networkMode = selectedMode;
         networkConnected = false;
         networkInputTick = 0L;
         lobbyLocalReady = false;
@@ -726,8 +704,10 @@ public class Main extends ApplicationAdapter {
         networkClient = new NetworkClient();
         networkClient.addMessageListener(this::handleNetworkMessage);
 
-        if (networkMode == NetworkMode.HOST) {
+        if (selectedMode == Menu.NetworkMode.HOST) {
             networkServer = new NetworkServer();
+            lobbyMenu = new LobbyMenu(this, String.format("%s:%s", this.resolveLocalHostingIp(), menu.getPort()));
+
             try {
                 networkServer.start(menu.getPort());
                 networkServerThread = new Thread(networkServer, "network-server");
@@ -735,7 +715,6 @@ public class Main extends ApplicationAdapter {
                 networkServerThread.start();
             } catch (SocketException e) {
                 Gdx.app.error("Networking", "Could not start host server on port " + menu.getPort(), e);
-                networkMode = NetworkMode.OFFLINE;
                 menu.setStatus("Host failed. Press F1 to retry or F2 to join.");
                 return;
             }
@@ -747,9 +726,10 @@ public class Main extends ApplicationAdapter {
                 menu.setStatus("Host started, but local client connection failed.");
                 networkConnected = false;
             }
-        } else if (networkMode == NetworkMode.CLIENT) {
+        } else if (selectedMode == Menu.NetworkMode.CLIENT) {
             try {
                 networkConnected = networkClient.connect(menu.getClientHost(), menu.getPort());
+                lobbyMenu = new LobbyMenu(this, String.format("%s:%s", menu.getClientHost(), menu.getPort()));
             } catch (IOException e) {
                 Gdx.app.error("Networking", "Client could not connect to " + menu.getClientHost() + ":" + menu.getPort(), e);
                 menu.setStatus("Connection failed. Press F2 to retry or F1 to host.");
@@ -782,23 +762,7 @@ public class Main extends ApplicationAdapter {
         return localAddresses.get(0);
     }
 
-    private void handleLobbyInput() {
-        if (Gdx.input.isKeyJustPressed(Input.Keys.R)) {
-            lobbyLocalReady = !lobbyLocalReady;
-            sendReadyState();
-            return;
-        }
-
-        if (networkMode == NetworkMode.HOST && Gdx.input.isKeyJustPressed(Input.Keys.ENTER)) {
-            if (!areAllLobbyPlayersReady()) {
-                lobbyStatus = "All connected clients must be ready.";
-                return;
-            }
-            requestLobbyStart();
-        }
-    }
-
-    private void sendReadyState() {
+    public void sendReadyState() {
         if (!networkConnected || networkClient == null || !networkClient.isConnected()) {
             return;
         }
@@ -811,7 +775,7 @@ public class Main extends ApplicationAdapter {
         }
     }
 
-    private void requestLobbyStart() {
+    public void requestLobbyStart() {
         if (!networkConnected || networkClient == null || !networkClient.isConnected()) {
             return;
         }
@@ -863,7 +827,7 @@ public class Main extends ApplicationAdapter {
         lobbyPlayers.clear();
         lobbyPlayers.addAll(parsedPlayers);
 
-        if (networkMode == NetworkMode.HOST) {
+        if (menu.startMode == Menu.NetworkMode.HOST) {
             if (areAllLobbyPlayersReady()) {
                 lobbyStatus = "Everyone is ready. Press Enter to start.";
             } else {
@@ -876,7 +840,7 @@ public class Main extends ApplicationAdapter {
         }
     }
 
-    private boolean areAllLobbyPlayersReady() {
+    public boolean areAllLobbyPlayersReady() {
         if (lobbyPlayers.isEmpty()) {
             return false;
         }
@@ -889,7 +853,7 @@ public class Main extends ApplicationAdapter {
     }
 
     private void handleStateMessage(String message) {
-        if (networkMode != NetworkMode.CLIENT) {
+        if (menu.startMode != Menu.NetworkMode.CLIENT) {
             return;
         }
 
@@ -914,7 +878,7 @@ public class Main extends ApplicationAdapter {
     }
 
     private void syncHostGameStateIfNeeded() {
-        if (networkMode != NetworkMode.HOST || !networkConnected || networkClient == null || !networkClient.isConnected()) {
+        if (menu.startMode != Menu.NetworkMode.HOST || !networkConnected || networkClient == null || !networkClient.isConnected()) {
             return;
         }
         if (gameState == GameState.MENU || gameState == GameState.LOBBY) {
@@ -935,11 +899,11 @@ public class Main extends ApplicationAdapter {
     }
 
     public boolean isClientNetworkMode() {
-        return networkMode == NetworkMode.CLIENT;
+        return menu.startMode == Menu.NetworkMode.CLIENT;
     }
 
     private void syncHostWorldSnapshot() {
-        if (networkMode != NetworkMode.HOST || !networkConnected || networkClient == null || !networkClient.isConnected() || gameState != GameState.PLAYING) {
+        if (menu.startMode != Menu.NetworkMode.HOST || !networkConnected || networkClient == null || !networkClient.isConnected() || gameState != GameState.PLAYING) {
             return;
         }
 
@@ -987,7 +951,7 @@ public class Main extends ApplicationAdapter {
     }
 
     private void handleWorldMessage(String message) {
-        if (networkMode != NetworkMode.CLIENT) {
+        if (menu.startMode != Menu.NetworkMode.CLIENT) {
             return;
         }
         String[] parts = message.split("\\s+");
@@ -1217,7 +1181,7 @@ public class Main extends ApplicationAdapter {
         }
 
         Gdx.app.postRunnable(() -> {
-            if (networkMode == NetworkMode.CLIENT) {
+            if (menu.startMode == Menu.NetworkMode.CLIENT) {
                 player.hitbox.x = selfX;
                 player.hitbox.y = selfY;
                 player.health = selfHp;

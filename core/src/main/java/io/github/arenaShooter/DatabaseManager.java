@@ -30,8 +30,6 @@ public class DatabaseManager {
         try {
             String dbPath = DB_URL.replace("jdbc:sqlite:", "");
             java.io.File dbFile = new java.io.File(dbPath);
-            System.out.println("Plik bazy danych istnieje: " + dbFile.exists());
-            System.out.println("Ścieżka absolutna: " + dbFile.getAbsolutePath());
 
             String scoreTable = "CREATE TABLE IF NOT EXISTS high_scores (" +
                 "id INTEGER PRIMARY KEY AUTOINCREMENT, " +

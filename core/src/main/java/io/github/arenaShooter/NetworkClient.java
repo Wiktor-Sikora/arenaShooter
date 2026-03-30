@@ -124,6 +124,10 @@ public class NetworkClient {
         return serverPort;
     }
 
+    public String getServerHostAndPort() {
+        return getServerIp() + ":" + getServerPort();
+    }
+
     public String getClientId() {
         return clientId;
     }
