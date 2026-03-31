@@ -300,9 +300,9 @@ public class Main extends ApplicationAdapter {
 
             }
 
-            if (menu.startMode != Menu.NetworkMode.CLIENT) {
-                for (int i = 0; i < enemies.size; i++) {
-                    if (enemies.get(i).isDisposable()) {
+            for (int i = 0; i < enemies.size; i++) {
+                if (enemies.get(i).isDisposable()) {
+                    if (menu.startMode != Menu.NetworkMode.CLIENT) {
                         player.gold += GOLD_PER_KILL;
 
                         if (shopUI != null) {
@@ -311,28 +311,28 @@ public class Main extends ApplicationAdapter {
                             player.enemiesKilled++;
                             shopUI.recordGold(GOLD_PER_KILL);
                         }
-
-                        enemies.get(i).dispose();
-                        enemies.removeIndex(i);
-                        i--;
-                    } else {
-                        enemies.get(i).update(delta);
                     }
-                }
 
-                if (enemies.size == 0) {
-                    gameState = GameState.STORE;
-                    syncHostGameStateIfNeeded();
+                    enemies.get(i).dispose();
+                    enemies.removeIndex(i);
+                    i--;
+                } else {
+                    enemies.get(i).update(delta);
                 }
+            }
 
-                for (int i = 0; i < bullets.size; i++) {
-                    if (bullets.get(i).isExpired()) {
-                        bullets.get(i).dispose();
-                        bullets.removeIndex(i);
-                        i--;
-                    } else {
-                        bullets.get(i).update(delta);
-                    }
+            if (menu.startMode != Menu.NetworkMode.CLIENT && enemies.size == 0) {
+                gameState = GameState.STORE;
+                syncHostGameStateIfNeeded();
+            }
+
+            for (int i = 0; i < bullets.size; i++) {
+                if (bullets.get(i).isExpired()) {
+                    bullets.get(i).dispose();
+                    bullets.removeIndex(i);
+                    i--;
+                } else {
+                    bullets.get(i).update(delta);
                 }
             }
 
@@ -1100,13 +1100,16 @@ public class Main extends ApplicationAdapter {
     }
 
     private Enemy createEnemyByType(String type, float x, float y) {
+        Enemy enemy;
         if ("K".equals(type)) {
-            return new Skeleton(x, y, this);
+            enemy = new Skeleton(x, y, this);
+        } else if ("Z".equals(type)) {
+            enemy = new Zombie(x, y, this);
+        } else {
+            enemy = new Slime(x, y, this);
         }
-        if ("Z".equals(type)) {
-            return new Zombie(x, y, this);
-        }
-        return new Slime(x, y, this);
+        enemy.isRemote = true;
+        return enemy;
     }
 
     private void reconcileBullets(List<BulletSnapshot> snapshots) {
