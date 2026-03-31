@@ -152,8 +152,6 @@ public class Main extends ApplicationAdapter {
         float targetX;
         float targetY;
         float targetRotation;
-        float interpolationTime;
-        float maxInterpolationTime = 0.1f;
         float hp;
         String weaponName;
     }
@@ -1255,7 +1253,6 @@ public class Main extends ApplicationAdapter {
                     state.targetRotation = snapshot.rotation;
                     state.hp = snapshot.hp;
                     state.weaponName = snapshot.weaponName;
-                    state.interpolationTime = 0f;
                 }
             }
 
@@ -1264,18 +1261,14 @@ public class Main extends ApplicationAdapter {
     }
 
     private void updateRemotePlayers(float delta) {
-        float lerpSpeed = 15f;
+        float alpha = 1f - (float)Math.exp(-delta * 10f);
         for (RemotePlayerState state : remotePlayers.values()) {
-            state.interpolationTime += delta;
-            float t = Math.min(state.interpolationTime / state.maxInterpolationTime, 1f);
-            float smoothT = t * t * (3f - 2f * t);
-            float lerpFactor = 1f - (float) Math.pow(0.001, delta * smoothT);
-            state.displayX += (state.targetX - state.displayX) * lerpFactor;
-            state.displayY += (state.targetY - state.displayY) * lerpFactor;
+            state.displayX = state.displayX + (state.targetX - state.displayX) * alpha;
+            state.displayY = state.displayY + (state.targetY - state.displayY) * alpha;
             float rotationDiff = state.targetRotation - state.displayRotation;
             if (rotationDiff > 180) rotationDiff -= 360;
             if (rotationDiff < -180) rotationDiff += 360;
-            state.displayRotation += rotationDiff * lerpFactor;
+            state.displayRotation = state.displayRotation + rotationDiff * alpha;
         }
     }
 
