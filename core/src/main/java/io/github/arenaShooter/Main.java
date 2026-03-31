@@ -527,26 +527,36 @@ public class Main extends ApplicationAdapter {
     private void loadScore() {
         try {
             List<String> list = db.getHighScores();
-
             if (list == null || list.isEmpty()) return;
 
+            // Sort by gold
             list.sort((a, b) -> {
-                int goldA = Integer.parseInt(a.split(" ")[1].replace(",", ""));
-                int goldB = Integer.parseInt(b.split(" ")[1].replace(",", ""));
+                String[] pa = a.trim().split("\\s+");
+                String[] pb = b.trim().split("\\s+");
+                int goldA = Integer.parseInt(pa[1].replaceAll(",", ""));
+                int goldB = Integer.parseInt(pb[1].replaceAll(",", ""));
                 return Integer.compare(goldB, goldA);
             });
 
             String best = list.get(0);
-            String[] parts = best.split(" ");
+            String[] parts = best.trim().split("\\s+");
 
             if (parts.length >= 4) {
-                scores.goldEarned = Integer.parseInt(parts[1].replace(",", ""));
-                scores.enemiesKilled = Integer.parseInt(parts[2].replace(",", ""));
-                scores.damageTaken = Integer.parseInt(parts[3].replace(",", ""));
+                scores.goldEarned = parseIntSafe(parts[1]);
+                scores.enemiesKilled = parseIntSafe(parts[3]);
+                scores.damageTaken = parseIntSafe(parts[6]);
             }
 
         } catch (Exception e) {
             e.printStackTrace();
+        }
+    }
+
+    private int parseIntSafe(String s) {
+        try {
+            return Integer.parseInt(s.replaceAll(",", "").trim());
+        } catch (NumberFormatException e) {
+            return 0;
         }
     }
 
@@ -599,6 +609,7 @@ public class Main extends ApplicationAdapter {
         camera.zoom = 1.0f;
         camera.update();
 
+        menu.setStatus("TAB switch field, type value. F1 Host, F2 Join");
         gameState = GameState.MENU;
     }
 
