@@ -29,6 +29,7 @@ public class  Player extends Entity {
     private TextureRegion currentFrame;
     private float stateTime = 0f;
     public boolean facingLeft = false;
+    public float rotation = 0f;
 
 
     private final TextureAtlas textureAtlas = new TextureAtlas(Gdx.files.internal("player.atlas"));
@@ -93,18 +94,15 @@ public class  Player extends Entity {
         Vector3 mousePos = game.camera.unproject(new Vector3(Gdx.input.getX(), Gdx.input.getY(), 0f));
         Vector2 dir = new Vector2(mousePos.x - getCenterX(), mousePos.y - getCenterY()).nor();
 
-        float rotation;
         boolean flipped = false;
 
         if (Math.abs(dir.x) > Math.abs(dir.y)) {
-            if (dir.x > 0) rotation = 0;
-            else { rotation = 0; flipped = true; }
-        } else {
-            if (dir.y > 0) rotation = 90;
-            else rotation = -90;
+            if (dir.x < 0) flipped = true;
         }
 
-        if (rotation == 90) {
+        rotation = dir.angleDeg();
+
+        if (rotation > 45 && rotation < 135) {
             weapon.render(batch);
         }
 
@@ -117,7 +115,7 @@ public class  Player extends Entity {
             batch.draw(currentFrame, drawX, drawY, textureWidth, textureHeight);
         }
 
-        if (rotation != 90) {
+        if (!(rotation > 45 && rotation < 135)) {
             weapon.render(batch);
         }
     }

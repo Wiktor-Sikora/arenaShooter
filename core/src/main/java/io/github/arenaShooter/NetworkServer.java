@@ -35,13 +35,15 @@ public class NetworkServer implements Runnable {
         public final float moveX;
         public final float moveY;
         public final boolean fire;
+        public final float rotation;
 
-        public PlayerInput(int playerId, long tick, float moveX, float moveY, boolean fire) {
+        public PlayerInput(int playerId, long tick, float moveX, float moveY, boolean fire, float rotation) {
             this.playerId = playerId;
             this.tick = tick;
             this.moveX = moveX;
             this.moveY = moveY;
             this.fire = fire;
+            this.rotation = rotation;
         }
     }
 
@@ -80,6 +82,7 @@ public class NetworkServer implements Runnable {
         float x;
         float y;
         float hp;
+        float rotation;
     }
 
     public void enqueueInput(PlayerInput input) {
@@ -210,6 +213,7 @@ public class NetworkServer implements Runnable {
                     float speed = 170f;
                     state.x += input.moveX * speed * (float) TICK_DT_SECONDS;
                     state.y += input.moveY * speed * (float) TICK_DT_SECONDS;
+                    state.rotation = input.rotation;
                     break;
                 }
             }
@@ -258,6 +262,7 @@ public class NetworkServer implements Runnable {
             float selfX = self == null ? 0f : self.x;
             float selfY = self == null ? 0f : self.y;
             float selfHp = self == null ? 0f : self.hp;
+            float selfRotation = self == null ? 0f : self.rotation;
 
             StringBuilder payload = new StringBuilder("SNAPSHOT ")
                 .append(serverTick).append(' ')
@@ -265,6 +270,7 @@ public class NetworkServer implements Runnable {
                 .append(selfX).append(' ')
                 .append(selfY).append(' ')
                 .append(selfHp).append(' ')
+                .append(selfRotation).append(' ')
                 .append(lastAckTick).append(' ')
                 .append(clientStates.size());
 
@@ -273,7 +279,8 @@ public class NetworkServer implements Runnable {
                     .append(state.playerId).append(',')
                     .append(state.x).append(',')
                     .append(state.y).append(',')
-                    .append(state.hp);
+                    .append(state.hp).append(',')
+                    .append(state.rotation);
             }
 
             sendTo(entry.getValue(), payload.toString());
@@ -349,7 +356,7 @@ public class NetworkServer implements Runnable {
             return;
         }
 
-        if ("INPUT".equalsIgnoreCase(parts[0]) && parts.length >= 6) {
+        if ("INPUT".equalsIgnoreCase(parts[0]) && parts.length >= 7) {
             if (gameState != GameState.PLAYING) {
                 return;
             }
@@ -364,7 +371,8 @@ public class NetworkServer implements Runnable {
                 float moveX = Float.parseFloat(parts[3]);
                 float moveY = Float.parseFloat(parts[4]);
                 boolean fire = Boolean.parseBoolean(parts[5]);
-                enqueueInput(new PlayerInput(playerId, inputTick, moveX, moveY, fire));
+                float rotation = Float.parseFloat(parts[6]);
+                enqueueInput(new PlayerInput(playerId, inputTick, moveX, moveY, fire, rotation));
             } catch (NumberFormatException ignored) {
                 // Ignore malformed packets.
             }

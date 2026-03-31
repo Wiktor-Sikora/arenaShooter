@@ -134,6 +134,7 @@ public class Main extends ApplicationAdapter {
         float x;
         float y;
         float hp;
+        float rotation;
     }
 
     private final Map<Integer, RemotePlayerSnapshot> remotePlayers = new ConcurrentHashMap<>();
@@ -645,7 +646,7 @@ public class Main extends ApplicationAdapter {
         if (Gdx.input.isKeyPressed(Input.Keys.W)) moveY += 1f;
 
         boolean fire = Gdx.input.isTouched(Input.Buttons.LEFT);
-        String payload = "INPUT " + networkClient.getClientId() + " " + networkInputTick + " " + moveX + " " + moveY + " " + fire;
+        String payload = "INPUT " + networkClient.getClientId() + " " + networkInputTick + " " + moveX + " " + moveY + " " + fire + " " + player.rotation;
 
         try {
             networkClient.sendMessage(payload);
@@ -1146,7 +1147,7 @@ public class Main extends ApplicationAdapter {
         }
 
         String[] parts = message.split("\\s+");
-        if (parts.length < 8) {
+        if (parts.length < 9) {
             return;
         }
 
@@ -1155,12 +1156,14 @@ public class Main extends ApplicationAdapter {
         float selfX;
         float selfY;
         float selfHp;
+        float selfRotation;
         try {
             index++; // server tick, currently unused
             selfId = Integer.parseInt(parts[index++]);
             selfX = Float.parseFloat(parts[index++]);
             selfY = Float.parseFloat(parts[index++]);
             selfHp = Float.parseFloat(parts[index++]);
+            selfRotation = Float.parseFloat(parts[index++]);
             index++; // lastAckTick
         } catch (NumberFormatException ignored) {
             return;
@@ -1175,8 +1178,8 @@ public class Main extends ApplicationAdapter {
 
         List<RemotePlayerSnapshot> parsed = new ArrayList<>();
         for (int i = 0; i < playersCount && index < parts.length; i++) {
-            String[] p = parts[index++].split(",", 4);
-            if (p.length < 4) {
+            String[] p = parts[index++].split(",", 5);
+            if (p.length < 5) {
                 continue;
             }
             try {
@@ -1185,6 +1188,7 @@ public class Main extends ApplicationAdapter {
                 snapshot.x = Float.parseFloat(p[1]);
                 snapshot.y = Float.parseFloat(p[2]);
                 snapshot.hp = Float.parseFloat(p[3]);
+                snapshot.rotation = Float.parseFloat(p[4]);
                 parsed.add(snapshot);
             } catch (NumberFormatException ignored) {
                 return;
@@ -1196,6 +1200,7 @@ public class Main extends ApplicationAdapter {
                 player.hitbox.x = selfX;
                 player.hitbox.y = selfY;
                 player.health = selfHp;
+                player.rotation = selfRotation;
             }
 
             remotePlayers.clear();
@@ -1208,13 +1213,35 @@ public class Main extends ApplicationAdapter {
     }
 
     private void renderRemotePlayers(SpriteBatch batch) {
-        if (remotePlayerFrame == null) {
+        if (remotePlayerAtlas == null) {
             return;
         }
         for (RemotePlayerSnapshot remote : remotePlayers.values()) {
             float drawX = remote.x - 16f;
             float drawY = remote.y;
-            batch.draw(remotePlayerFrame, drawX, drawY, 64f, 64f);
+
+            TextureRegion frame;
+            boolean facingLeft = false;
+
+            float angle = remote.rotation % 360;
+            if (angle < 0) angle += 360;
+
+            if (angle >= 45 && angle < 135) {
+                frame = remotePlayerAtlas.findRegion("player_back_0");
+            } else if (angle >= 135 && angle < 225) {
+                frame = remotePlayerAtlas.findRegion("player_side_0");
+                facingLeft = true;
+            } else if (angle >= 225 && angle < 315) {
+                frame = remotePlayerAtlas.findRegion("player_front_0");
+            } else {
+                frame = remotePlayerAtlas.findRegion("player_side_0");
+            }
+
+            if (facingLeft) {
+                batch.draw(frame, drawX + 64f, drawY, -64f, 64f);
+            } else {
+                batch.draw(frame, drawX, drawY, 64f, 64f);
+            }
         }
     }
 
