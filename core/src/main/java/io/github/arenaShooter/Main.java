@@ -1398,7 +1398,7 @@ public class Main extends ApplicationAdapter {
             float barWidth = 64f;
             float barHeight = 6f;
             float barX = state.displayX - 16f;
-            float barY = state.displayY + 68f;
+            float barY = state.displayY - 8f;
             float healthPercent = Math.max(0, state.hp) / 100f;
             shapeRenderer.setColor(Color.GRAY);
             shapeRenderer.rect(barX, barY, barWidth, barHeight);
