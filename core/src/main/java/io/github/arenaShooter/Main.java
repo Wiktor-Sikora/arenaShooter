@@ -338,6 +338,14 @@ public class Main extends ApplicationAdapter {
                         int killerId = enemy.lastHitByPlayerId;
                         awardGoldToPlayer(killerId, GOLD_PER_KILL);
 
+                        if (menu.startMode == Menu.NetworkMode.HOST && networkConnected) {
+                            try {
+                                networkClient.sendMessage("KILL " + killerId + " " + GOLD_PER_KILL);
+                            } catch (IOException e) {
+                                networkConnected = false;
+                            }
+                        }
+
                         if (shopUI != null) {
                             shopUI.recordKill();
                             shopUI.recordGold(GOLD_PER_KILL);
@@ -765,6 +773,10 @@ public class Main extends ApplicationAdapter {
             handleShootMessage(message);
             return;
         }
+        if (message.startsWith("KILL ")) {
+            handleKillMessage(message);
+            return;
+        }
         if (!message.startsWith("SNAPSHOT ")) {
             return;
         }
@@ -1073,6 +1085,19 @@ public class Main extends ApplicationAdapter {
             Gdx.app.postRunnable(() -> {
                 createRemotePlayerBullet(finalX, finalY, direction, finalWeaponName, finalPlayerId);
             });
+        } catch (NumberFormatException ignored) {
+        }
+    }
+
+    private void handleKillMessage(String message) {
+        String[] parts = message.split("\\s+");
+        if (parts.length < 3) {
+            return;
+        }
+        try {
+            int playerId = Integer.parseInt(parts[1]);
+            int goldAmount = Integer.parseInt(parts[2]);
+            awardGoldToPlayer(playerId, goldAmount);
         } catch (NumberFormatException ignored) {
         }
     }
