@@ -41,9 +41,11 @@ import java.net.SocketException;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
 import java.util.List;
 import java.util.Random;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.function.Supplier;
@@ -143,7 +145,20 @@ public class Main extends ApplicationAdapter {
         float weaponTextureHeight;
     }
 
-    private final Map<Integer, RemotePlayerSnapshot> remotePlayers = new ConcurrentHashMap<>();
+    private static class RemotePlayerState {
+        float displayX;
+        float displayY;
+        float displayRotation;
+        float targetX;
+        float targetY;
+        float targetRotation;
+        float interpolationTime;
+        float maxInterpolationTime = 0.1f;
+        float hp;
+        String weaponName;
+    }
+
+    private final Map<Integer, RemotePlayerState> remotePlayers = new ConcurrentHashMap<>();
 
     HighScores scores = new HighScores();
 
@@ -348,6 +363,7 @@ public class Main extends ApplicationAdapter {
         }
 
         float delta = Gdx.graphics.getDeltaTime();
+        updateRemotePlayers(delta);
         stage.act(Gdx.graphics.getDeltaTime());
 
         camera.position.x += (player.getCenterX() - camera.position.x) * 5f * delta;
@@ -1222,27 +1238,59 @@ public class Main extends ApplicationAdapter {
                 player.rotation = selfRotation;
             }
 
-            remotePlayers.clear();
+            Set<Integer> activeIds = new HashSet<>();
             for (RemotePlayerSnapshot snapshot : parsed) {
                 if (snapshot.id != selfId) {
-                    remotePlayers.put(snapshot.id, snapshot);
+                    activeIds.add(snapshot.id);
+                    RemotePlayerState state = remotePlayers.get(snapshot.id);
+                    if (state == null) {
+                        state = new RemotePlayerState();
+                        state.displayX = snapshot.x;
+                        state.displayY = snapshot.y;
+                        state.displayRotation = snapshot.rotation;
+                        remotePlayers.put(snapshot.id, state);
+                    }
+                    state.targetX = snapshot.x;
+                    state.targetY = snapshot.y;
+                    state.targetRotation = snapshot.rotation;
+                    state.hp = snapshot.hp;
+                    state.weaponName = snapshot.weaponName;
+                    state.interpolationTime = 0f;
                 }
             }
+
+            remotePlayers.keySet().removeIf(id -> !activeIds.contains(id));
         });
+    }
+
+    private void updateRemotePlayers(float delta) {
+        float lerpSpeed = 15f;
+        for (RemotePlayerState state : remotePlayers.values()) {
+            state.interpolationTime += delta;
+            float t = Math.min(state.interpolationTime / state.maxInterpolationTime, 1f);
+            float smoothT = t * t * (3f - 2f * t);
+            float lerpFactor = 1f - (float) Math.pow(0.001, delta * smoothT);
+            state.displayX += (state.targetX - state.displayX) * lerpFactor;
+            state.displayY += (state.targetY - state.displayY) * lerpFactor;
+            float rotationDiff = state.targetRotation - state.displayRotation;
+            if (rotationDiff > 180) rotationDiff -= 360;
+            if (rotationDiff < -180) rotationDiff += 360;
+            state.displayRotation += rotationDiff * lerpFactor;
+        }
     }
 
     private void renderRemotePlayers(SpriteBatch batch) {
         if (remotePlayerAtlas == null) {
             return;
         }
-        for (RemotePlayerSnapshot remote : remotePlayers.values()) {
-            float drawX = remote.x - 16f;
-            float drawY = remote.y;
+        for (RemotePlayerState state : remotePlayers.values()) {
+            float drawX = state.displayX - 16f;
+            float drawY = state.displayY;
 
             TextureRegion frame;
             boolean facingLeft = false;
 
-            float angle = remote.rotation % 360;
+            float angle = state.displayRotation % 360;
             if (angle < 0) angle += 360;
 
             if (angle >= 45 && angle < 135) {
@@ -1262,25 +1310,25 @@ public class Main extends ApplicationAdapter {
                 batch.draw(frame, drawX, drawY, 64f, 64f);
             }
 
-            float playerCenterX = remote.x + 16f;
-            float playerCenterY = remote.y + 32f;
+            float playerCenterX = state.displayX + 16f;
+            float playerCenterY = state.displayY + 32f;
 
             float weaponRotation = 0f;
             boolean weaponFlipped = false;
-            if (Math.abs(Math.cos(Math.toRadians(remote.rotation))) > Math.abs(Math.sin(Math.toRadians(remote.rotation)))) {
-                if (Math.cos(Math.toRadians(remote.rotation)) < 0) {
+            if (Math.abs(Math.cos(Math.toRadians(state.displayRotation))) > Math.abs(Math.sin(Math.toRadians(state.displayRotation)))) {
+                if (Math.cos(Math.toRadians(state.displayRotation)) < 0) {
                     weaponFlipped = true;
                 }
             } else {
-                if (Math.sin(Math.toRadians(remote.rotation)) > 0) {
+                if (Math.sin(Math.toRadians(state.displayRotation)) > 0) {
                     weaponRotation = 90f;
                 } else {
                     weaponRotation = -90f;
                 }
             }
 
-            Texture weaponTex = remoteWeaponTextures.get(remote.weaponName);
-            float[] dims = remoteWeaponDimensions.get(remote.weaponName);
+            Texture weaponTex = remoteWeaponTextures.get(state.weaponName);
+            float[] dims = remoteWeaponDimensions.get(state.weaponName);
             if (dims == null) {
                 dims = new float[]{20f, 17f};
             }
@@ -1340,9 +1388,9 @@ public class Main extends ApplicationAdapter {
         Vector2 closest = new Vector2(player.getCenterX(), player.getCenterY());
         float bestDistance2 = (closest.x - fromX) * (closest.x - fromX) + (closest.y - fromY) * (closest.y - fromY);
 
-        for (RemotePlayerSnapshot remote : remotePlayers.values()) {
-            float candidateX = remote.x + 16f;
-            float candidateY = remote.y + 32f;
+        for (RemotePlayerState state : remotePlayers.values()) {
+            float candidateX = state.displayX + 16f;
+            float candidateY = state.displayY + 32f;
             float distance2 = (candidateX - fromX) * (candidateX - fromX) + (candidateY - fromY) * (candidateY - fromY);
             if (distance2 < bestDistance2) {
                 bestDistance2 = distance2;
@@ -1357,8 +1405,8 @@ public class Main extends ApplicationAdapter {
         if (hitbox.overlaps(player.hitbox)) {
             return true;
         }
-        for (RemotePlayerSnapshot remote : remotePlayers.values()) {
-            Rectangle remoteHitbox = new Rectangle(remote.x, remote.y, player.hitbox.width, player.hitbox.height);
+        for (RemotePlayerState state : remotePlayers.values()) {
+            Rectangle remoteHitbox = new Rectangle(state.displayX, state.displayY, player.hitbox.width, player.hitbox.height);
             if (hitbox.overlaps(remoteHitbox)) {
                 return true;
             }
