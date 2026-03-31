@@ -14,6 +14,7 @@ import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.graphics.g2d.TextureAtlas;
+import com.badlogic.gdx.graphics.g2d.Animation;
 import com.badlogic.gdx.graphics.g2d.TextureRegion;
 import com.badlogic.gdx.math.Rectangle;
 import com.badlogic.gdx.math.Vector2;
@@ -112,6 +113,9 @@ public class Main extends ApplicationAdapter {
     private Texture networkEnemyBulletTexture;
     private TextureAtlas remotePlayerAtlas;
     private TextureRegion remotePlayerFrame;
+    private Animation<TextureRegion> remoteSideWalkAnimation;
+    private Animation<TextureRegion> remoteFrontWalkAnimation;
+    private Animation<TextureRegion> remoteBackWalkAnimation;
     private Map<String, Texture> remoteWeaponTextures = new HashMap<>();
     private Map<String, float[]> remoteWeaponDimensions = new HashMap<>();
 
@@ -156,6 +160,9 @@ public class Main extends ApplicationAdapter {
         float hp;
         String weaponName;
         boolean dead = false;
+        float stateTime = 0f;
+        float prevX = 0f;
+        float prevY = 0f;
     }
 
     private final Map<Integer, RemotePlayerState> remotePlayers = new ConcurrentHashMap<>();
@@ -191,6 +198,24 @@ public class Main extends ApplicationAdapter {
         networkEnemyBulletTexture = new Texture("bone.png");
         remotePlayerAtlas = new TextureAtlas(Gdx.files.internal("player.atlas"));
         remotePlayerFrame = remotePlayerAtlas.findRegion("player_side_0");
+
+        Array<TextureRegion> sideWalkFrames = new Array<>();
+        for (int i = 0; i < 5; i++) {
+            sideWalkFrames.add(remotePlayerAtlas.findRegion("player_side_" + i));
+        }
+        remoteSideWalkAnimation = new Animation<>(0.2f, sideWalkFrames, Animation.PlayMode.LOOP);
+
+        Array<TextureRegion> frontWalkFrames = new Array<>();
+        for (int i = 0; i < 3; i++) {
+            frontWalkFrames.add(remotePlayerAtlas.findRegion("player_front_" + i));
+        }
+        remoteFrontWalkAnimation = new Animation<>(0.3f, frontWalkFrames, Animation.PlayMode.LOOP);
+
+        Array<TextureRegion> backWalkFrames = new Array<>();
+        for (int i = 0; i < 3; i++) {
+            backWalkFrames.add(remotePlayerAtlas.findRegion("player_back_" + i));
+        }
+        remoteBackWalkAnimation = new Animation<>(0.3f, backWalkFrames, Animation.PlayMode.LOOP);
 
         remoteWeaponTextures.put("Gun", new Texture("gun.png"));
         remoteWeaponDimensions.put("Gun", new float[]{20f, 17f});
@@ -1340,6 +1365,19 @@ public class Main extends ApplicationAdapter {
         float lerpFactor = Math.min(1f, delta * 10f);
         for (RemotePlayerState state : remotePlayers.values()) {
             if (state.dead) continue;
+            float dx = state.targetX - state.prevX;
+            float dy = state.targetY - state.prevY;
+            boolean isMoving = Math.abs(dx) > 0.1f || Math.abs(dy) > 0.1f;
+
+            if (isMoving) {
+                state.stateTime += delta;
+            } else {
+                state.stateTime = 4;
+            }
+
+            state.prevX = state.targetX;
+            state.prevY = state.targetY;
+
             state.displayX += (state.targetX - state.displayX) * lerpFactor;
             state.displayY += (state.targetY - state.displayY) * lerpFactor;
             state.displayRotation += (state.targetRotation - state.displayRotation) * lerpFactor;
@@ -1362,14 +1400,14 @@ public class Main extends ApplicationAdapter {
             if (angle < 0) angle += 360;
 
             if (angle >= 45 && angle < 135) {
-                frame = remotePlayerAtlas.findRegion("player_back_0");
+                frame = remoteBackWalkAnimation.getKeyFrame(state.stateTime, true);
             } else if (angle >= 135 && angle < 225) {
-                frame = remotePlayerAtlas.findRegion("player_side_0");
+                frame = remoteSideWalkAnimation.getKeyFrame(state.stateTime, true);
                 facingLeft = true;
             } else if (angle >= 225 && angle < 315) {
-                frame = remotePlayerAtlas.findRegion("player_front_0");
+                frame = remoteFrontWalkAnimation.getKeyFrame(state.stateTime, true);
             } else {
-                frame = remotePlayerAtlas.findRegion("player_side_0");
+                frame = remoteSideWalkAnimation.getKeyFrame(state.stateTime, true);
             }
 
             if (facingLeft) {
