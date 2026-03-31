@@ -1265,8 +1265,7 @@ public class Main extends ApplicationAdapter {
     }
 
     private void updateRemotePlayers(float delta) {
-        float serverTickSeconds = 1f / 20f;
-        float lerpFactor = 1f - (float)Math.pow(0.001, delta / serverTickSeconds);
+        float lerpFactor = 0.1f;
         for (RemotePlayerState state : remotePlayers.values()) {
             state.displayX += (state.targetX - state.displayX) * lerpFactor;
             state.displayY += (state.targetY - state.displayY) * lerpFactor;
