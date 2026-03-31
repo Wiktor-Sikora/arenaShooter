@@ -87,9 +87,6 @@ public class Menu {
 
             status = "Connecting to " + clientHost + ":" + port + "...";
             startMode = NetworkMode.CLIENT;
-        }
-
-        if (Gdx.input.isKeyJustPressed(Input.Keys.ENTER) && startMode != null) {
             main.startFromMenu(this.startMode);
         }
     }
