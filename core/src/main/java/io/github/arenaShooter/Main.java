@@ -1246,11 +1246,15 @@ public class Main extends ApplicationAdapter {
                         state.displayX = snapshot.x;
                         state.displayY = snapshot.y;
                         state.displayRotation = snapshot.rotation;
+                        state.targetX = snapshot.x;
+                        state.targetY = snapshot.y;
+                        state.targetRotation = snapshot.rotation;
                         remotePlayers.put(snapshot.id, state);
+                    } else {
+                        state.targetX = snapshot.x;
+                        state.targetY = snapshot.y;
+                        state.targetRotation = snapshot.rotation;
                     }
-                    state.targetX = snapshot.x;
-                    state.targetY = snapshot.y;
-                    state.targetRotation = snapshot.rotation;
                     state.hp = snapshot.hp;
                     state.weaponName = snapshot.weaponName;
                 }
@@ -1261,14 +1265,14 @@ public class Main extends ApplicationAdapter {
     }
 
     private void updateRemotePlayers(float delta) {
-        float alpha = 1f - (float)Math.exp(-delta * 10f);
+        float alpha = 1f - (float)Math.exp(-delta * 30f);
         for (RemotePlayerState state : remotePlayers.values()) {
-            state.displayX = state.displayX + (state.targetX - state.displayX) * alpha;
-            state.displayY = state.displayY + (state.targetY - state.displayY) * alpha;
+            state.displayX += (state.targetX - state.displayX) * alpha;
+            state.displayY += (state.targetY - state.displayY) * alpha;
             float rotationDiff = state.targetRotation - state.displayRotation;
             if (rotationDiff > 180) rotationDiff -= 360;
             if (rotationDiff < -180) rotationDiff += 360;
-            state.displayRotation = state.displayRotation + rotationDiff * alpha;
+            state.displayRotation += rotationDiff * alpha;
         }
     }
 
