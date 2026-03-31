@@ -692,6 +692,17 @@ public class Main extends ApplicationAdapter {
         }
     }
 
+    public void sendNetworkShoot(float x, float y, float dirX, float dirY, String weaponName) {
+        if (!networkConnected || networkClient == null || !networkClient.isConnected()) {
+            return;
+        }
+        try {
+            networkClient.sendMessage("SHOOT " + networkClient.getClientId() + " " + x + " " + y + " " + dirX + " " + dirY + " " + weaponName);
+        } catch (IOException e) {
+            networkConnected = false;
+        }
+    }
+
     private void handleNetworkMessage(String message) {
         if (message == null || message.isBlank()) {
             return;
@@ -714,6 +725,10 @@ public class Main extends ApplicationAdapter {
         }
         if (message.startsWith("WORLD ")) {
             handleWorldMessage(message);
+            return;
+        }
+        if (message.startsWith("SHOOT ")) {
+            handleShootMessage(message);
             return;
         }
         if (!message.startsWith("SNAPSHOT ")) {
@@ -996,6 +1011,49 @@ public class Main extends ApplicationAdapter {
             return "Z";
         }
         return "S";
+    }
+
+    private void handleShootMessage(String message) {
+        String[] parts = message.split("\\s+");
+        if (parts.length < 6) {
+            return;
+        }
+        String shooterId = parts[1];
+        if (shooterId.equals(networkClient.getClientId())) {
+            return;
+        }
+        try {
+            float x = Float.parseFloat(parts[2]);
+            float y = Float.parseFloat(parts[3]);
+            float dirX = Float.parseFloat(parts[4]);
+            float dirY = Float.parseFloat(parts[5]);
+            String weaponName = parts.length > 6 ? parts[6] : "Gun";
+            final float finalX = x;
+            final float finalY = y;
+            final Vector2 direction = new Vector2(dirX, dirY);
+            final String finalWeaponName = weaponName;
+            Gdx.app.postRunnable(() -> {
+                createRemotePlayerBullet(finalX, finalY, direction, finalWeaponName);
+            });
+        } catch (NumberFormatException ignored) {
+        }
+    }
+
+    private void createRemotePlayerBullet(float x, float y, Vector2 direction, String weaponName) {
+        Texture tex = networkPlayerBulletTexture;
+        float damage = 10f;
+        float speed = 500f;
+        float range = 500f;
+        int width = 16;
+        int height = 16;
+        if ("Uzi".equals(weaponName)) {
+            damage = 20f;
+        } else if ("Shotgun".equals(weaponName)) {
+            damage = 8f;
+            width = 33;
+            height = 14;
+        }
+        addBullet(new Bullet(this, x, y, direction, tex, width, height, damage, speed, range, Bullet.Owner.PLAYER));
     }
 
     private void handleWorldMessage(String message) {

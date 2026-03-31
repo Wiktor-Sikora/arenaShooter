@@ -140,6 +140,7 @@ public class  Player extends Entity {
             Vector3 unprojectedCords = game.camera.unproject(new Vector3(Gdx.input.getX(), Gdx.input.getY(), 0f));
             Vector2 direction = new Vector2(unprojectedCords.x - getCenterX(), unprojectedCords.y - getCenterY());
             weapon.shoot(direction);
+            game.sendNetworkShoot(getCenterX(), getCenterY(), direction.x, direction.y, weapon.name);
         }
 
         if (localMovementAllowed && Gdx.input.isKeyPressed(Input.Keys.W)) {
