@@ -1413,6 +1413,15 @@ public class Main extends ApplicationAdapter {
         float epsilon = 0.1f;
         if (Math.abs(closest.x - player.getCenterX()) < epsilon && Math.abs(closest.y - player.getCenterY()) < epsilon) {
             player.takeDamage(amount);
+        } else {
+            for (RemotePlayerState state : remotePlayers.values()) {
+                float remoteCenterX = state.displayX + 16f;
+                float remoteCenterY = state.displayY + 32f;
+                if (Math.abs(closest.x - remoteCenterX) < epsilon && Math.abs(closest.y - remoteCenterY) < epsilon) {
+                    state.hp -= amount;
+                    break;
+                }
+            }
         }
     }
 }
