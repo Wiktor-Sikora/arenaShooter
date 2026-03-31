@@ -42,7 +42,7 @@ public class Menu {
         this.hostInput = initialClientHost;
         this.port = initialPort;
         this.portInput = String.valueOf(initialPort);
-        this.status = "TAB switch field, type value. F1 Host, F2 Join, F3 Scoreboard";
+        this.status = "TAB switch field, type value. F1 Host, F2 Join";
         backgroundTexture = new Texture("menu.png");
 
         Pixmap pixmap = new Pixmap(1, 1, Pixmap.Format.RGBA8888);
@@ -89,6 +89,10 @@ public class Menu {
             startMode = NetworkMode.CLIENT;
             main.startFromMenu(this.startMode);
         }
+
+        if(Gdx.input.isKeyJustPressed(Input.Keys.Q)) {
+            Gdx.app.exit();
+        }
     }
 
     public boolean handleCharacter(char character) {
@@ -97,7 +101,7 @@ public class Menu {
         }
 
         if (editField == EditField.HOST) {
-            if (Character.isLetterOrDigit(character) || character == '.' || character == '-' || character == '_') {
+            if ((Character.isDigit(character) || character == '.') && hostInput.length() < 15) {
                 hostInput += character;
                 return true;
             }
@@ -125,7 +129,7 @@ public class Menu {
 
         batch.setColor(0, 0, 0, 0.5f);
         float rectTop = centerY + 85 + 15;
-        float rectBottom = centerY - 100 - 30;
+        float rectBottom = centerY - 115 - 20;
         float rectHeight = rectTop - rectBottom;
 
         float rectWidth = 430;
@@ -145,7 +149,8 @@ public class Menu {
         drawCenteredText(batch, font, layout, camera, "[F1] Create Server", centerY + 5, 1.3f);
         drawCenteredText(batch, font, layout, camera, "[F2] Connect To Server", centerY - 25, 1.3f);
         drawCenteredText(batch, font, layout, camera, "[F3] Scoreboard", centerY - 55, 1.3f);
-        drawCenteredText(batch, font, layout, camera, status, centerY - 100, 1.0f);
+        drawCenteredText(batch, font, layout, camera, "[Q] Quit", centerY - 85, 1.3f);
+        drawCenteredText(batch, font, layout, camera, status, centerY - 115, 1.0f);
 
         batch.end();
     }

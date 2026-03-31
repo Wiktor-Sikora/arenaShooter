@@ -15,12 +15,11 @@ public class DatabaseManager {
             Class.forName("org.sqlite.JDBC");
             connection = DriverManager.getConnection(DB_URL);
             createTables();
-            System.out.println("Baza danych zainicjalizowana pomyślnie");
         } catch (ClassNotFoundException e) {
-            System.err.println("Nie znaleziono sterownika SQLite: " + e.getMessage());
+            System.err.println("SQLite driver not found: " + e.getMessage());
             e.printStackTrace();
         } catch (SQLException e) {
-            System.err.println("Błąd inicjalizacji bazy danych: " + e.getMessage());
+            System.err.println("Database initialization error: " + e.getMessage());
             e.printStackTrace();
         }
     }
@@ -39,15 +38,12 @@ public class DatabaseManager {
                 "date DATETIME DEFAULT CURRENT_TIMESTAMP);";
 
             try (Statement stmt = connection.createStatement()) {
-                System.out.println("Wykonywanie zapytania: " + scoreTable);
                 stmt.execute(scoreTable);
-                System.out.println("Tabela utworzona pomyślnie");
             } catch (SQLException e) {
-                System.err.println("Błąd tworzenia tabeli: " + e.getMessage());
                 e.printStackTrace();
             }
         } catch (Exception e) {
-            System.err.println("Błąd w createTables: " + e.getMessage());
+            System.err.println("Error in createTables: " + e.getMessage());
             e.printStackTrace();
         }
     }
@@ -92,7 +88,7 @@ public class DatabaseManager {
         List<String> scores = new ArrayList<>();
 
         if (connection == null) {
-            System.err.println("Brak połączenia z bazą.");
+            System.err.println("No connection with the database.");
             return scores;
         }
 
@@ -106,7 +102,7 @@ public class DatabaseManager {
                 int damage = rs.getInt("damage_taken");
                 String date = rs.getString("date");
 
-                scores.add(String.format("Gold: %d, Kills: %d, Damage: %d (%s)", gold, kills, damage, date));
+                scores.add(String.format("Gold: %d, Kills: %d, Damage Taken: %d (%s)", gold, kills, damage, date));
             }
         } catch (SQLException e) {
             e.printStackTrace();

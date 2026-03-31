@@ -14,6 +14,9 @@ import java.util.List;
 public class LobbyMenu {
     public String lobbyAddress;
     private Main main;
+    private String temporaryStatus = null;
+    private float statusTimer = 0f;
+    private static final float STATUS_DURATION = 2f;
 
     public static class LobbyPlayer {
         public final int playerId;
@@ -32,8 +35,17 @@ public class LobbyMenu {
         this.main = main;
     }
 
+
     public void render(SpriteBatch batch, BitmapFont font, GlyphLayout layout, OrthographicCamera camera,
                        boolean host, boolean localReady, List<LobbyPlayer> players, String status) {
+        float delta = Gdx.graphics.getDeltaTime();
+
+        if (statusTimer > 0) {
+            statusTimer -= delta;
+        } else {
+            temporaryStatus = null;
+        }
+
         batch.setProjectionMatrix(camera.combined);
         batch.begin();
 
@@ -59,12 +71,14 @@ public class LobbyMenu {
             y -= 24f;
         }
 
-        drawCenteredText(batch, font, layout, camera, status, centerY - 120, 1.0f);
+        String displayStatus = (temporaryStatus != null) ? temporaryStatus : status;
+        drawCenteredText(batch, font, layout, camera, displayStatus, centerY - 120, 1.0f);
         batch.end();
     }
 
     public void handleInput() {
         if (Gdx.input.isKeyJustPressed(Input.Keys.Q)) {
+            main.menu.setStatus("TAB switch field, type value. F1 Host, F2 Join");
             main.gameState = Main.GameState.MENU;
         }
 
@@ -76,7 +90,8 @@ public class LobbyMenu {
 
         if (main.menu.startMode == Menu.NetworkMode.HOST && Gdx.input.isKeyJustPressed(Input.Keys.ENTER)) {
             if (!main.areAllLobbyPlayersReady()) {
-                main.lobbyStatus = "All connected clients must be ready.";
+                temporaryStatus = "All connected clients must be ready.";
+                statusTimer = STATUS_DURATION;
                 return;
             }
             main.requestLobbyStart();
