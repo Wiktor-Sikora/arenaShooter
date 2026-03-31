@@ -677,7 +677,7 @@ public class Main extends ApplicationAdapter {
 
         boolean fire = Gdx.input.isTouched(Input.Buttons.LEFT);
         String weaponName = player.weapon != null ? player.weapon.name : "Gun";
-        String payload = "INPUT " + networkClient.getClientId() + " " + networkInputTick + " " + moveX + " " + moveY + " " + fire + " " + player.rotation + " " + weaponName;
+        String payload = "INPUT " + networkClient.getClientId() + " " + networkInputTick + " " + moveX + " " + moveY + " " + fire + " " + player.rotation + " " + weaponName + " " + player.hitbox.x + " " + player.hitbox.y;
 
         try {
             networkClient.sendMessage(payload);
@@ -1265,14 +1265,25 @@ public class Main extends ApplicationAdapter {
     }
 
     private void updateRemotePlayers(float delta) {
-        float alpha = 1f - (float)Math.exp(-delta * 30f);
+        float alpha = Math.min(1f, delta * 25f);
         for (RemotePlayerState state : remotePlayers.values()) {
-            state.displayX += (state.targetX - state.displayX) * alpha;
-            state.displayY += (state.targetY - state.displayY) * alpha;
+            float diffX = state.targetX - state.displayX;
+            float diffY = state.targetY - state.displayY;
+            float dist = (float)Math.sqrt(diffX * diffX + diffY * diffY);
+            float movePerFrame = 50f * delta;
+            if (dist > 0.1f) {
+                if (dist < movePerFrame) {
+                    state.displayX = state.targetX;
+                    state.displayY = state.targetY;
+                } else {
+                    state.displayX += (diffX / dist) * movePerFrame;
+                    state.displayY += (diffY / dist) * movePerFrame;
+                }
+            }
             float rotationDiff = state.targetRotation - state.displayRotation;
             if (rotationDiff > 180) rotationDiff -= 360;
             if (rotationDiff < -180) rotationDiff += 360;
-            state.displayRotation += rotationDiff * alpha;
+            state.displayRotation += rotationDiff * Math.min(1f, delta * 25f);
         }
     }
 
