@@ -13,6 +13,7 @@ import java.net.SocketTimeoutException;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -204,25 +205,31 @@ public class NetworkServer implements Runnable {
     }
 
     private void applyBufferedInputs() {
+        Map<Integer, PlayerInput> latestInputs = new HashMap<>();
         PlayerInput input;
         while ((input = pendingInputs.poll()) != null) {
             Long processedTick = lastProcessedInputTick.get(input.playerId);
             if (processedTick != null && input.tick <= processedTick) {
                 continue;
             }
+            PlayerInput existing = latestInputs.get(input.playerId);
+            if (existing == null || input.tick > existing.tick) {
+                latestInputs.put(input.playerId, input);
+            }
+        }
 
+        for (PlayerInput inp : latestInputs.values()) {
             for (ClientState state : clientStates.values()) {
-                if (state.playerId == input.playerId) {
+                if (state.playerId == inp.playerId) {
                     float speed = 170f;
-                    state.x += input.moveX * speed * (float) TICK_DT_SECONDS;
-                    state.y += input.moveY * speed * (float) TICK_DT_SECONDS;
-                    state.rotation = input.rotation;
-                    state.weaponName = input.weaponName;
+                    state.x += inp.moveX * speed * (float) TICK_DT_SECONDS;
+                    state.y += inp.moveY * speed * (float) TICK_DT_SECONDS;
+                    state.rotation = inp.rotation;
+                    state.weaponName = inp.weaponName;
+                    lastProcessedInputTick.put(inp.playerId, inp.tick);
                     break;
                 }
             }
-
-            lastProcessedInputTick.put(input.playerId, input.tick);
         }
     }
 
