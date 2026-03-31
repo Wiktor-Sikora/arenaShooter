@@ -154,6 +154,7 @@ public class Main extends ApplicationAdapter {
         float targetRotation;
         float hp;
         String weaponName;
+        boolean dead = false;
     }
 
     private final Map<Integer, RemotePlayerState> remotePlayers = new ConcurrentHashMap<>();
@@ -1260,6 +1261,7 @@ public class Main extends ApplicationAdapter {
                     }
                     state.hp = snapshot.hp;
                     state.weaponName = snapshot.weaponName;
+                    state.dead = snapshot.hp <= 0;
                 }
             }
 
@@ -1270,6 +1272,7 @@ public class Main extends ApplicationAdapter {
     private void updateRemotePlayers(float delta) {
         float lerpFactor = Math.min(1f, delta * 10f);
         for (RemotePlayerState state : remotePlayers.values()) {
+            if (state.dead) continue;
             state.displayX += (state.targetX - state.displayX) * lerpFactor;
             state.displayY += (state.targetY - state.displayY) * lerpFactor;
             state.displayRotation += (state.targetRotation - state.displayRotation) * lerpFactor;
@@ -1281,6 +1284,7 @@ public class Main extends ApplicationAdapter {
             return;
         }
         for (RemotePlayerState state : remotePlayers.values()) {
+            if (state.dead) continue;
             float drawX = state.displayX - 16f;
             float drawY = state.displayY;
 
@@ -1386,6 +1390,7 @@ public class Main extends ApplicationAdapter {
         float bestDistance2 = (closest.x - fromX) * (closest.x - fromX) + (closest.y - fromY) * (closest.y - fromY);
 
         for (RemotePlayerState state : remotePlayers.values()) {
+            if (state.dead) continue;
             float candidateX = state.displayX + 16f;
             float candidateY = state.displayY + 32f;
             float distance2 = (candidateX - fromX) * (candidateX - fromX) + (candidateY - fromY) * (candidateY - fromY);
@@ -1403,6 +1408,7 @@ public class Main extends ApplicationAdapter {
             return true;
         }
         for (RemotePlayerState state : remotePlayers.values()) {
+            if (state.dead) continue;
             Rectangle remoteHitbox = new Rectangle(state.displayX, state.displayY, player.hitbox.width, player.hitbox.height);
             if (hitbox.overlaps(remoteHitbox)) {
                 return true;
@@ -1418,6 +1424,7 @@ public class Main extends ApplicationAdapter {
             player.takeDamage(amount);
         } else {
             for (RemotePlayerState state : remotePlayers.values()) {
+                if (state.dead) continue;
                 float remoteCenterX = state.displayX + 16f;
                 float remoteCenterY = state.displayY + 32f;
                 if (Math.abs(closest.x - remoteCenterX) < epsilon && Math.abs(closest.y - remoteCenterY) < epsilon) {
