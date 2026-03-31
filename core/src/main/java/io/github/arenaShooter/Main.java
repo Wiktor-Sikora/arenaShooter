@@ -1233,7 +1233,10 @@ public class Main extends ApplicationAdapter {
 
         Gdx.app.postRunnable(() -> {
             if (menu.startMode == Menu.NetworkMode.CLIENT) {
+                player.hitbox.x = selfX;
+                player.hitbox.y = selfY;
                 player.health = selfHp;
+                player.rotation = selfRotation;
             }
 
             Set<Integer> activeIds = new HashSet<>();
