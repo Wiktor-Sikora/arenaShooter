@@ -163,6 +163,8 @@ public class Main extends ApplicationAdapter {
         float stateTime = 0f;
         float prevX = 0f;
         float prevY = 0f;
+        int gold = 0;
+        int enemiesKilled = 0;
     }
 
     private final Map<Integer, RemotePlayerState> remotePlayers = new ConcurrentHashMap<>();
@@ -225,6 +227,7 @@ public class Main extends ApplicationAdapter {
         remoteWeaponDimensions.put("Shotgun", new float[]{33f, 14f});
 
         player = new Player(AREA_OFFSET + PLAYABLE_AREA_SIZE / 2, AREA_OFFSET + PLAYABLE_AREA_SIZE / 2, this);
+        player.playerId = 0;
 
         playerHud = new PlayerHud(this);
         shopUI = new ShopUI(this);
@@ -330,12 +333,12 @@ public class Main extends ApplicationAdapter {
             for (int i = 0; i < enemies.size; i++) {
                 if (enemies.get(i).isDisposable()) {
                     if (menu.startMode != Menu.NetworkMode.CLIENT) {
-                        player.gold += GOLD_PER_KILL;
+                        Enemy enemy = enemies.get(i);
+                        int killerId = enemy.lastHitByPlayerId;
+                        awardGoldToPlayer(killerId, GOLD_PER_KILL);
 
                         if (shopUI != null) {
                             shopUI.recordKill();
-                            player.goldEarned += GOLD_PER_KILL;
-                            player.enemiesKilled++;
                             shopUI.recordGold(GOLD_PER_KILL);
                         }
                     }
@@ -518,6 +521,11 @@ public class Main extends ApplicationAdapter {
     }
 
     public void addBullet(Bullet bullet) {
+        bullets.add(bullet);
+    }
+
+    public void addBullet(Bullet bullet, int playerId) {
+        bullet.playerId = playerId;
         bullets.add(bullet);
     }
 
@@ -722,7 +730,7 @@ public class Main extends ApplicationAdapter {
             return;
         }
         try {
-            networkClient.sendMessage("SHOOT " + networkClient.getClientId() + " " + x + " " + y + " " + dirX + " " + dirY + " " + weaponName);
+            networkClient.sendMessage("SHOOT " + networkClient.getClientId() + " " + player.playerId + " " + x + " " + y + " " + dirX + " " + dirY + " " + weaponName);
         } catch (IOException e) {
             networkConnected = false;
         }
@@ -833,6 +841,8 @@ public class Main extends ApplicationAdapter {
         if (!networkConnected) {
             return;
         }
+
+        player.playerId = networkClient.getPlayerId();
 
         gameState = GameState.LOBBY;
         lobbyStatus = "Connected. Press R to set ready.";
@@ -1040,7 +1050,7 @@ public class Main extends ApplicationAdapter {
 
     private void handleShootMessage(String message) {
         String[] parts = message.split("\\s+");
-        if (parts.length < 6) {
+        if (parts.length < 7) {
             return;
         }
         String shooterId = parts[1];
@@ -1048,23 +1058,25 @@ public class Main extends ApplicationAdapter {
             return;
         }
         try {
-            float x = Float.parseFloat(parts[2]);
-            float y = Float.parseFloat(parts[3]);
-            float dirX = Float.parseFloat(parts[4]);
-            float dirY = Float.parseFloat(parts[5]);
-            String weaponName = parts.length > 6 ? parts[6] : "Gun";
+            int playerId = Integer.parseInt(parts[2]);
+            float x = Float.parseFloat(parts[3]);
+            float y = Float.parseFloat(parts[4]);
+            float dirX = Float.parseFloat(parts[5]);
+            float dirY = Float.parseFloat(parts[6]);
+            String weaponName = parts.length > 7 ? parts[7] : "Gun";
+            final int finalPlayerId = playerId;
             final float finalX = x;
             final float finalY = y;
             final Vector2 direction = new Vector2(dirX, dirY);
             final String finalWeaponName = weaponName;
             Gdx.app.postRunnable(() -> {
-                createRemotePlayerBullet(finalX, finalY, direction, finalWeaponName);
+                createRemotePlayerBullet(finalX, finalY, direction, finalWeaponName, finalPlayerId);
             });
         } catch (NumberFormatException ignored) {
         }
     }
 
-    private void createRemotePlayerBullet(float x, float y, Vector2 direction, String weaponName) {
+    private void createRemotePlayerBullet(float x, float y, Vector2 direction, String weaponName, int playerId) {
         Texture tex = networkPlayerBulletTexture;
         float damage = 10f;
         float speed = 500f;
@@ -1076,7 +1088,9 @@ public class Main extends ApplicationAdapter {
         } else if ("Shotgun".equals(weaponName)) {
             damage = 8f;
         }
-        addBullet(new Bullet(this, x, y, direction, tex, width, height, damage, speed, range, Bullet.Owner.PLAYER));
+        Bullet bullet = new Bullet(this, x, y, direction, tex, width, height, damage, speed, range, Bullet.Owner.PLAYER);
+        bullet.playerId = playerId;
+        addBullet(bullet);
     }
 
     private void handleWorldMessage(String message) {
@@ -1381,6 +1395,18 @@ public class Main extends ApplicationAdapter {
             state.displayX += (state.targetX - state.displayX) * lerpFactor;
             state.displayY += (state.targetY - state.displayY) * lerpFactor;
             state.displayRotation += (state.targetRotation - state.displayRotation) * lerpFactor;
+        }
+    }
+
+    private void awardGoldToPlayer(int playerId, int amount) {
+        RemotePlayerState remote = remotePlayers.get(playerId);
+        if (remote != null) {
+            remote.gold += amount;
+            remote.enemiesKilled++;
+        } else {
+            player.gold += amount;
+            player.goldEarned += amount;
+            player.enemiesKilled++;
         }
     }
 

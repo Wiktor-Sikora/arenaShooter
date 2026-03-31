@@ -98,7 +98,7 @@ public class Shotgun extends Weapon {
                 this.projectileSpeed,
                 this.range,
                 Bullet.Owner.PLAYER
-            ));
+            ), getPlayerId());
         }
     }
 
