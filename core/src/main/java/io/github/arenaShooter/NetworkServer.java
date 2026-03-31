@@ -37,10 +37,8 @@ public class NetworkServer implements Runnable {
         public final boolean fire;
         public final float rotation;
         public final String weaponName;
-        public final float posX;
-        public final float posY;
 
-        public PlayerInput(int playerId, long tick, float moveX, float moveY, boolean fire, float rotation, String weaponName, float posX, float posY) {
+        public PlayerInput(int playerId, long tick, float moveX, float moveY, boolean fire, float rotation, String weaponName) {
             this.playerId = playerId;
             this.tick = tick;
             this.moveX = moveX;
@@ -48,8 +46,6 @@ public class NetworkServer implements Runnable {
             this.fire = fire;
             this.rotation = rotation;
             this.weaponName = weaponName;
-            this.posX = posX;
-            this.posY = posY;
         }
     }
 
@@ -217,8 +213,9 @@ public class NetworkServer implements Runnable {
 
             for (ClientState state : clientStates.values()) {
                 if (state.playerId == input.playerId) {
-                    state.x = input.posX;
-                    state.y = input.posY;
+                    float speed = 170f;
+                    state.x += input.moveX * speed * (float) TICK_DT_SECONDS;
+                    state.y += input.moveY * speed * (float) TICK_DT_SECONDS;
                     state.rotation = input.rotation;
                     state.weaponName = input.weaponName;
                     break;
@@ -367,7 +364,7 @@ public class NetworkServer implements Runnable {
             return;
         }
 
-        if ("INPUT".equalsIgnoreCase(parts[0]) && parts.length >= 10) {
+        if ("INPUT".equalsIgnoreCase(parts[0]) && parts.length >= 8) {
             if (gameState != GameState.PLAYING) {
                 return;
             }
@@ -384,9 +381,7 @@ public class NetworkServer implements Runnable {
                 boolean fire = Boolean.parseBoolean(parts[5]);
                 float rotation = Float.parseFloat(parts[6]);
                 String weaponName = parts[7];
-                float posX = Float.parseFloat(parts[8]);
-                float posY = Float.parseFloat(parts[9]);
-                enqueueInput(new PlayerInput(playerId, inputTick, moveX, moveY, fire, rotation, weaponName, posX, posY));
+                enqueueInput(new PlayerInput(playerId, inputTick, moveX, moveY, fire, rotation, weaponName));
             } catch (NumberFormatException ignored) {
                 // Ignore malformed packets.
             }
