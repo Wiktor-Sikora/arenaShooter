@@ -136,11 +136,9 @@ public class  Player extends Entity {
         boolean moving = false;
         boolean localMovementAllowed = !game.isClientNetworkMode();
 
-        if (!game.isClientNetworkMode() && Gdx.input.isTouched(Input.Buttons.LEFT)) {
-            // changing input cords to world cords
+        if (Gdx.input.isTouched(Input.Buttons.LEFT)) {
             Vector3 unprojectedCords = game.camera.unproject(new Vector3(Gdx.input.getX(), Gdx.input.getY(), 0f));
             Vector2 direction = new Vector2(unprojectedCords.x - getCenterX(), unprojectedCords.y - getCenterY());
-
             weapon.shoot(direction);
         }
 
@@ -163,10 +161,6 @@ public class  Player extends Entity {
 
         Vector3 mousePos = game.camera.unproject(new Vector3(Gdx.input.getX(), Gdx.input.getY(), 0f));
         Vector2 direction = new Vector2(mousePos.x - getCenterX(), mousePos.y - getCenterY()).nor();
-        if (!game.isClientNetworkMode() && Gdx.input.isTouched(Input.Buttons.LEFT)) {
-            weapon.shoot(direction);
-        }
-
 
         float angle = direction.angleDeg();
 
