@@ -151,6 +151,7 @@ public class Main extends ApplicationAdapter {
     }
 
     private static class RemotePlayerState {
+        int playerId;
         float displayX;
         float displayY;
         float displayRotation;
@@ -1353,6 +1354,7 @@ public class Main extends ApplicationAdapter {
                     RemotePlayerState state = remotePlayers.get(snapshot.id);
                     if (state == null) {
                         state = new RemotePlayerState();
+                        state.playerId = snapshot.id;
                         state.displayX = snapshot.x;
                         state.displayY = snapshot.y;
                         state.displayRotation = snapshot.rotation;
@@ -1399,15 +1401,16 @@ public class Main extends ApplicationAdapter {
     }
 
     private void awardGoldToPlayer(int playerId, int amount) {
-        RemotePlayerState remote = remotePlayers.get(playerId);
-        if (remote != null) {
-            remote.gold += amount;
-            remote.enemiesKilled++;
-        } else {
-            player.gold += amount;
-            player.goldEarned += amount;
-            player.enemiesKilled++;
+        for (RemotePlayerState remote : remotePlayers.values()) {
+            if (remote.playerId == playerId) {
+                remote.gold += amount;
+                remote.enemiesKilled++;
+                return;
+            }
         }
+        player.gold += amount;
+        player.goldEarned += amount;
+        player.enemiesKilled++;
     }
 
     private void renderRemotePlayers(SpriteBatch batch) {
