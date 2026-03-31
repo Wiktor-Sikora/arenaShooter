@@ -38,8 +38,9 @@ public class NetworkServer implements Runnable {
         public final boolean fire;
         public final float rotation;
         public final String weaponName;
+        public final float health;
 
-        public PlayerInput(int playerId, long tick, float moveX, float moveY, boolean fire, float rotation, String weaponName) {
+        public PlayerInput(int playerId, long tick, float moveX, float moveY, boolean fire, float rotation, String weaponName, float health) {
             this.playerId = playerId;
             this.tick = tick;
             this.moveX = moveX;
@@ -47,6 +48,7 @@ public class NetworkServer implements Runnable {
             this.fire = fire;
             this.rotation = rotation;
             this.weaponName = weaponName;
+            this.health = health;
         }
     }
 
@@ -226,6 +228,7 @@ public class NetworkServer implements Runnable {
                     state.y += inp.moveY * speed * (float) TICK_DT_SECONDS;
                     state.rotation = inp.rotation;
                     state.weaponName = inp.weaponName;
+                    state.hp = inp.health;
                     lastProcessedInputTick.put(inp.playerId, inp.tick);
                     break;
                 }
@@ -371,7 +374,7 @@ public class NetworkServer implements Runnable {
             return;
         }
 
-        if ("INPUT".equalsIgnoreCase(parts[0]) && parts.length >= 8) {
+        if ("INPUT".equalsIgnoreCase(parts[0]) && parts.length >= 9) {
             if (gameState != GameState.PLAYING) {
                 return;
             }
@@ -388,7 +391,8 @@ public class NetworkServer implements Runnable {
                 boolean fire = Boolean.parseBoolean(parts[5]);
                 float rotation = Float.parseFloat(parts[6]);
                 String weaponName = parts[7];
-                enqueueInput(new PlayerInput(playerId, inputTick, moveX, moveY, fire, rotation, weaponName));
+                float health = Float.parseFloat(parts[8]);
+                enqueueInput(new PlayerInput(playerId, inputTick, moveX, moveY, fire, rotation, weaponName, health));
             } catch (NumberFormatException ignored) {
                 // Ignore malformed packets.
             }

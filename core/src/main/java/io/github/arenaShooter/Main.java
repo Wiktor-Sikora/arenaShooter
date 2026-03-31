@@ -678,7 +678,7 @@ public class Main extends ApplicationAdapter {
 
         boolean fire = Gdx.input.isTouched(Input.Buttons.LEFT);
         String weaponName = player.weapon != null ? player.weapon.name : "Gun";
-        String payload = "INPUT " + networkClient.getClientId() + " " + networkInputTick + " " + moveX + " " + moveY + " " + fire + " " + player.rotation + " " + weaponName;
+        String payload = "INPUT " + networkClient.getClientId() + " " + networkInputTick + " " + moveX + " " + moveY + " " + fire + " " + player.rotation + " " + weaponName + " " + player.health;
 
         try {
             networkClient.sendMessage(payload);
