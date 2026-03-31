@@ -1268,10 +1268,7 @@ public class Main extends ApplicationAdapter {
         for (RemotePlayerState state : remotePlayers.values()) {
             state.displayX = state.targetX;
             state.displayY = state.targetY;
-            float rotationDiff = state.targetRotation - state.displayRotation;
-            if (rotationDiff > 180) rotationDiff -= 360;
-            if (rotationDiff < -180) rotationDiff += 360;
-            state.displayRotation += rotationDiff * 0.5f;
+            state.displayRotation = state.targetRotation;
         }
     }
 
