@@ -1265,13 +1265,15 @@ public class Main extends ApplicationAdapter {
     }
 
     private void updateRemotePlayers(float delta) {
+        float serverTickSeconds = 1f / 20f;
+        float lerpFactor = 1f - (float)Math.pow(0.001, delta / serverTickSeconds);
         for (RemotePlayerState state : remotePlayers.values()) {
-            state.displayX = state.targetX;
-            state.displayY = state.targetY;
+            state.displayX += (state.targetX - state.displayX) * lerpFactor;
+            state.displayY += (state.targetY - state.displayY) * lerpFactor;
             float rotationDiff = state.targetRotation - state.displayRotation;
             if (rotationDiff > 180) rotationDiff -= 360;
             if (rotationDiff < -180) rotationDiff += 360;
-            state.displayRotation += rotationDiff * 0.3f;
+            state.displayRotation += rotationDiff * lerpFactor;
         }
     }
 
