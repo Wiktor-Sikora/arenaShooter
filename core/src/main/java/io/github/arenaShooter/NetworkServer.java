@@ -36,14 +36,16 @@ public class NetworkServer implements Runnable {
         public final float moveY;
         public final boolean fire;
         public final float rotation;
+        public final String weaponName;
 
-        public PlayerInput(int playerId, long tick, float moveX, float moveY, boolean fire, float rotation) {
+        public PlayerInput(int playerId, long tick, float moveX, float moveY, boolean fire, float rotation, String weaponName) {
             this.playerId = playerId;
             this.tick = tick;
             this.moveX = moveX;
             this.moveY = moveY;
             this.fire = fire;
             this.rotation = rotation;
+            this.weaponName = weaponName;
         }
     }
 
@@ -83,6 +85,7 @@ public class NetworkServer implements Runnable {
         float y;
         float hp;
         float rotation;
+        String weaponName;
     }
 
     public void enqueueInput(PlayerInput input) {
@@ -214,6 +217,7 @@ public class NetworkServer implements Runnable {
                     state.x += input.moveX * speed * (float) TICK_DT_SECONDS;
                     state.y += input.moveY * speed * (float) TICK_DT_SECONDS;
                     state.rotation = input.rotation;
+                    state.weaponName = input.weaponName;
                     break;
                 }
             }
@@ -263,6 +267,7 @@ public class NetworkServer implements Runnable {
             float selfY = self == null ? 0f : self.y;
             float selfHp = self == null ? 0f : self.hp;
             float selfRotation = self == null ? 0f : self.rotation;
+            String selfWeapon = self == null ? "Gun" : self.weaponName;
 
             StringBuilder payload = new StringBuilder("SNAPSHOT ")
                 .append(serverTick).append(' ')
@@ -271,6 +276,7 @@ public class NetworkServer implements Runnable {
                 .append(selfY).append(' ')
                 .append(selfHp).append(' ')
                 .append(selfRotation).append(' ')
+                .append(selfWeapon).append(' ')
                 .append(lastAckTick).append(' ')
                 .append(clientStates.size());
 
@@ -280,7 +286,8 @@ public class NetworkServer implements Runnable {
                     .append(state.x).append(',')
                     .append(state.y).append(',')
                     .append(state.hp).append(',')
-                    .append(state.rotation);
+                    .append(state.rotation).append(',')
+                    .append(state.weaponName);
             }
 
             sendTo(entry.getValue(), payload.toString());
@@ -304,6 +311,7 @@ public class NetworkServer implements Runnable {
                 state.x = AREA_OFFSET + PLAYABLE_AREA_SIZE / 2f;
                 state.y = AREA_OFFSET + PLAYABLE_AREA_SIZE / 2f;
                 state.hp = 100f;
+                state.weaponName = "Gun";
                 return state;
             });
             if (ownerClientId == null) {
@@ -356,7 +364,7 @@ public class NetworkServer implements Runnable {
             return;
         }
 
-        if ("INPUT".equalsIgnoreCase(parts[0]) && parts.length >= 7) {
+        if ("INPUT".equalsIgnoreCase(parts[0]) && parts.length >= 8) {
             if (gameState != GameState.PLAYING) {
                 return;
             }
@@ -372,7 +380,8 @@ public class NetworkServer implements Runnable {
                 float moveY = Float.parseFloat(parts[4]);
                 boolean fire = Boolean.parseBoolean(parts[5]);
                 float rotation = Float.parseFloat(parts[6]);
-                enqueueInput(new PlayerInput(playerId, inputTick, moveX, moveY, fire, rotation));
+                String weaponName = parts[7];
+                enqueueInput(new PlayerInput(playerId, inputTick, moveX, moveY, fire, rotation, weaponName));
             } catch (NumberFormatException ignored) {
                 // Ignore malformed packets.
             }

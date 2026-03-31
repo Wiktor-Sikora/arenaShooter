@@ -40,6 +40,7 @@ import java.io.IOException;
 import java.net.SocketException;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.List;
 import java.util.Random;
@@ -68,7 +69,6 @@ public class Main extends ApplicationAdapter {
     private GlyphLayout layout;
 
     private DatabaseManager db;
-
 
     public ShapeRenderer shapeRenderer;
 
@@ -110,6 +110,8 @@ public class Main extends ApplicationAdapter {
     private Texture networkEnemyBulletTexture;
     private TextureAtlas remotePlayerAtlas;
     private TextureRegion remotePlayerFrame;
+    private Map<String, Texture> remoteWeaponTextures = new HashMap<>();
+    private Map<String, float[]> remoteWeaponDimensions = new HashMap<>();
 
     private static class EnemySnapshot {
         String type;
@@ -135,6 +137,10 @@ public class Main extends ApplicationAdapter {
         float y;
         float hp;
         float rotation;
+        String weaponName;
+        Texture weaponTexture;
+        float weaponTextureWidth;
+        float weaponTextureHeight;
     }
 
     private final Map<Integer, RemotePlayerSnapshot> remotePlayers = new ConcurrentHashMap<>();
@@ -170,6 +176,13 @@ public class Main extends ApplicationAdapter {
         networkEnemyBulletTexture = new Texture("bone.png");
         remotePlayerAtlas = new TextureAtlas(Gdx.files.internal("player.atlas"));
         remotePlayerFrame = remotePlayerAtlas.findRegion("player_side_0");
+
+        remoteWeaponTextures.put("Gun", new Texture("gun.png"));
+        remoteWeaponDimensions.put("Gun", new float[]{20f, 17f});
+        remoteWeaponTextures.put("Uzi", new Texture("uzi_icon.png"));
+        remoteWeaponDimensions.put("Uzi", new float[]{20f, 17f});
+        remoteWeaponTextures.put("Shotgun", new Texture("shotgun.png"));
+        remoteWeaponDimensions.put("Shotgun", new float[]{33f, 14f});
 
         player = new Player(AREA_OFFSET + PLAYABLE_AREA_SIZE / 2, AREA_OFFSET + PLAYABLE_AREA_SIZE / 2, this);
 
@@ -439,6 +452,9 @@ public class Main extends ApplicationAdapter {
         networkPlayerBulletTexture.dispose();
         networkEnemyBulletTexture.dispose();
         remotePlayerAtlas.dispose();
+        for (Texture tex : remoteWeaponTextures.values()) {
+            tex.dispose();
+        }
         stage.dispose();
 
         if (db != null) {
@@ -646,7 +662,8 @@ public class Main extends ApplicationAdapter {
         if (Gdx.input.isKeyPressed(Input.Keys.W)) moveY += 1f;
 
         boolean fire = Gdx.input.isTouched(Input.Buttons.LEFT);
-        String payload = "INPUT " + networkClient.getClientId() + " " + networkInputTick + " " + moveX + " " + moveY + " " + fire + " " + player.rotation;
+        String weaponName = player.weapon != null ? player.weapon.name : "Gun";
+        String payload = "INPUT " + networkClient.getClientId() + " " + networkInputTick + " " + moveX + " " + moveY + " " + fire + " " + player.rotation + " " + weaponName;
 
         try {
             networkClient.sendMessage(payload);
@@ -1164,6 +1181,7 @@ public class Main extends ApplicationAdapter {
             selfY = Float.parseFloat(parts[index++]);
             selfHp = Float.parseFloat(parts[index++]);
             selfRotation = Float.parseFloat(parts[index++]);
+            index++; // selfWeapon (unused for local player)
             index++; // lastAckTick
         } catch (NumberFormatException ignored) {
             return;
@@ -1178,8 +1196,8 @@ public class Main extends ApplicationAdapter {
 
         List<RemotePlayerSnapshot> parsed = new ArrayList<>();
         for (int i = 0; i < playersCount && index < parts.length; i++) {
-            String[] p = parts[index++].split(",", 5);
-            if (p.length < 5) {
+            String[] p = parts[index++].split(",", 6);
+            if (p.length < 6) {
                 continue;
             }
             try {
@@ -1189,6 +1207,7 @@ public class Main extends ApplicationAdapter {
                 snapshot.y = Float.parseFloat(p[2]);
                 snapshot.hp = Float.parseFloat(p[3]);
                 snapshot.rotation = Float.parseFloat(p[4]);
+                snapshot.weaponName = p[5];
                 parsed.add(snapshot);
             } catch (NumberFormatException ignored) {
                 return;
@@ -1241,6 +1260,78 @@ public class Main extends ApplicationAdapter {
                 batch.draw(frame, drawX + 64f, drawY, -64f, 64f);
             } else {
                 batch.draw(frame, drawX, drawY, 64f, 64f);
+            }
+
+            float playerCenterX = remote.x + 16f;
+            float playerCenterY = remote.y + 32f;
+
+            float weaponRotation = 0f;
+            boolean weaponFlipped = false;
+            if (Math.abs(Math.cos(Math.toRadians(remote.rotation))) > Math.abs(Math.sin(Math.toRadians(remote.rotation)))) {
+                if (Math.cos(Math.toRadians(remote.rotation)) < 0) {
+                    weaponFlipped = true;
+                }
+            } else {
+                if (Math.sin(Math.toRadians(remote.rotation)) > 0) {
+                    weaponRotation = 90f;
+                } else {
+                    weaponRotation = -90f;
+                }
+            }
+
+            Texture weaponTex = remoteWeaponTextures.get(remote.weaponName);
+            float[] dims = remoteWeaponDimensions.get(remote.weaponName);
+            if (dims == null) {
+                dims = new float[]{20f, 17f};
+            }
+            float texWidth = dims[0];
+            float texHeight = dims[1];
+
+            float offsetX = 0, offsetY = 0;
+            if (weaponRotation == 0) {
+                if (weaponFlipped) {
+                    offsetX = -28;
+                    offsetY = -5;
+                } else {
+                    offsetX = 7;
+                    offsetY = -5;
+                }
+            } else if (weaponRotation == 90) {
+                offsetX = -10;
+                offsetY = 25;
+            } else if (weaponRotation == -90) {
+                offsetX = 0;
+                offsetY = -15;
+            }
+
+            if (weaponTex != null) {
+                if (weaponRotation == 90 || weaponRotation == -90) {
+                    batch.draw(
+                        weaponTex,
+                        playerCenterX + offsetX,
+                        playerCenterY + offsetY,
+                        texWidth / 2, texHeight / 2,
+                        texWidth, texHeight,
+                        1f, 1f,
+                        weaponRotation,
+                        0, 0,
+                        weaponTex.getWidth(), weaponTex.getHeight(),
+                        false, false
+                    );
+                } else {
+                    batch.draw(
+                        weaponTex,
+                        playerCenterX + offsetX,
+                        playerCenterY + offsetY,
+                        texWidth / 2, texHeight / 2,
+                        texWidth, texHeight,
+                        1f, 1f,
+                        weaponRotation,
+                        0, 0,
+                        weaponTex.getWidth(), weaponTex.getHeight(),
+                        weaponFlipped, false
+                    );
+                }
             }
         }
     }
