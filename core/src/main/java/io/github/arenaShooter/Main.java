@@ -398,12 +398,14 @@ public class Main extends ApplicationAdapter {
             }
 
             batch.end();
+            renderRemotePlayerHealthBars();
             stage.draw();
             playerHud.render();
         } else if (gameState == GameState.STORE && shopUI != null) {
             player.render(batch);
             renderRemotePlayers(batch);
             batch.end();
+            renderRemotePlayerHealthBars();
             stage.draw();
             playerHud.render();
             shopUI.render();
@@ -1383,6 +1385,27 @@ public class Main extends ApplicationAdapter {
                 }
             }
         }
+    }
+
+    private void renderRemotePlayerHealthBars() {
+        if (remotePlayerAtlas == null) {
+            return;
+        }
+        shapeRenderer.setProjectionMatrix(camera.combined);
+        shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
+        for (RemotePlayerState state : remotePlayers.values()) {
+            if (state.dead) continue;
+            float barWidth = 64f;
+            float barHeight = 6f;
+            float barX = state.displayX - 16f;
+            float barY = state.displayY + 68f;
+            float healthPercent = Math.max(0, state.hp) / 100f;
+            shapeRenderer.setColor(Color.GRAY);
+            shapeRenderer.rect(barX, barY, barWidth, barHeight);
+            shapeRenderer.setColor(Color.GREEN);
+            shapeRenderer.rect(barX, barY, barWidth * healthPercent, barHeight);
+        }
+        shapeRenderer.end();
     }
 
     public Vector2 getClosestPlayerCenter(float fromX, float fromY) {
