@@ -1269,8 +1269,9 @@ public class Main extends ApplicationAdapter {
             float diffX = state.targetX - state.displayX;
             float diffY = state.targetY - state.displayY;
             float dist = (float)Math.sqrt(diffX * diffX + diffY * diffY);
-            float maxMovePerSecond = 80f;
-            float maxMove = maxMovePerSecond * delta;
+            float serverPixelsPerTick = 8.5f;
+            float serverTicksPerSecond = 20f;
+            float maxMove = serverPixelsPerTick * serverTicksPerSecond * delta;
             if (dist > 1f) {
                 float moveX = (diffX / dist) * Math.min(maxMove, dist);
                 float moveY = (diffY / dist) * Math.min(maxMove, dist);
