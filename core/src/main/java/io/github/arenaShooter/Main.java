@@ -1044,14 +1044,12 @@ public class Main extends ApplicationAdapter {
         float damage = 10f;
         float speed = 500f;
         float range = 500f;
-        int width = 16;
-        int height = 16;
+        int width = 5;
+        int height = 15;
         if ("Uzi".equals(weaponName)) {
             damage = 20f;
         } else if ("Shotgun".equals(weaponName)) {
             damage = 8f;
-            width = 33;
-            height = 14;
         }
         addBullet(new Bullet(this, x, y, direction, tex, width, height, damage, speed, range, Bullet.Owner.PLAYER));
     }
