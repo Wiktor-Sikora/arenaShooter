@@ -1178,7 +1178,7 @@ public class Main extends ApplicationAdapter {
         }
 
         String[] parts = message.split("\\s+");
-        if (parts.length < 9) {
+        if (parts.length < 10) {
             return;
         }
 
