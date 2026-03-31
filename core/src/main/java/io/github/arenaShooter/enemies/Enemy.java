@@ -59,6 +59,12 @@ public abstract class Enemy extends Entity {
         state = State.DEAD;
     }
 
+    public void setDeadState() {
+        healthBar.dispose();
+        state = State.DEAD;
+        stateTime = 0f;
+    }
+
     public void stepTowardsPlayer(float delta, float dx, float dy, float distanceToPlayer) {
         if (isRemote) {
             return;

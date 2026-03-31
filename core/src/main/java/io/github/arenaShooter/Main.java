@@ -120,6 +120,7 @@ public class Main extends ApplicationAdapter {
         float x;
         float y;
         float health;
+        boolean dead;
     }
 
     private static class BulletSnapshot {
@@ -962,7 +963,8 @@ public class Main extends ApplicationAdapter {
             payload.append(enemyTypeCode(enemy)).append(',')
                 .append(enemy.hitbox.x).append(',')
                 .append(enemy.hitbox.y).append(',')
-                .append(enemy.health).append(' ');
+                .append(enemy.health).append(',')
+                .append(!enemy.isAlive()).append(' ');
         }
 
         payload.append("B ").append(bullets.size).append(' ');
@@ -1015,8 +1017,8 @@ public class Main extends ApplicationAdapter {
 
         List<EnemySnapshot> enemySnapshots = new ArrayList<>();
         for (int i = 0; i < enemyCount && index < parts.length; i++) {
-            String[] enemyParts = parts[index++].split(",", 4);
-            if (enemyParts.length < 4) {
+            String[] enemyParts = parts[index++].split(",", 5);
+            if (enemyParts.length < 5) {
                 continue;
             }
             try {
@@ -1025,6 +1027,7 @@ public class Main extends ApplicationAdapter {
                 snapshot.x = Float.parseFloat(enemyParts[1]);
                 snapshot.y = Float.parseFloat(enemyParts[2]);
                 snapshot.health = Float.parseFloat(enemyParts[3]);
+                snapshot.dead = Boolean.parseBoolean(enemyParts[4]);
                 enemySnapshots.add(snapshot);
             } catch (NumberFormatException ignored) {
                 return;
@@ -1088,12 +1091,18 @@ public class Main extends ApplicationAdapter {
                 }
                 Enemy created = createEnemyByType(snapshot.type, snapshot.x, snapshot.y);
                 created.health = snapshot.health;
+                if (snapshot.dead) {
+                    created.setDeadState();
+                }
                 enemies.insert(i, created);
                 continue;
             }
 
             enemy.hitbox.setPosition(snapshot.x, snapshot.y);
             enemy.health = snapshot.health;
+            if (snapshot.dead && enemy.isAlive()) {
+                enemy.setDeadState();
+            }
         }
 
         while (enemies.size > snapshots.size()) {
