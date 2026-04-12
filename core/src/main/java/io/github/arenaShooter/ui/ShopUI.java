@@ -47,8 +47,6 @@ public class ShopUI {
     private int goldEarned = 0;
     private int damageTaken = 0;
 
-    private float rejectedMessageTimer = 0f;
-
     public ShopUI(Main game) {
         this.game = game;
         this.batch = new SpriteBatch();
@@ -124,17 +122,6 @@ public class ShopUI {
             return;
         }
 
-        if (game.networkConnected) {
-            game.sendNetworkBuy(item.price, item.name);
-            return;
-        }
-
-        applyItemEffect(item);
-    }
-
-    public void applyItemEffect(ShopItem item) {
-        Player player = game.player;
-
         switch (item.name) {
 
             case "GUN":
@@ -188,54 +175,7 @@ public class ShopUI {
         if (item.oncePerWave) {
             item.boughtThisWave = true;
         }
-    }
 
-    public ShopItem findItemByName(String name) {
-        for (ShopItem item : currentItems) {
-            if (item.name.equals(name)) {
-                return item;
-            }
-        }
-        return null;
-    }
-
-    public void applyNetworkPurchase(String itemName) {
-        ShopItem item = findItemByName(itemName);
-        if (item == null) return;
-
-        switch (item.name) {
-            case "GUN":
-                game.player.equipWeapon(new Gun(game));
-                game.player.weapon.damage += game.player.dmg;
-                break;
-            case "SHOTGUN":
-                game.player.equipWeapon(new Shotgun(game));
-                game.player.weapon.damage += game.player.dmg;
-                break;
-            case "UZI":
-                game.player.equipWeapon(new Uzi(game));
-                game.player.weapon.damage += game.player.dmg;
-                break;
-            case "HEALTH POTION":
-                if (game.player.health < game.player.maxHealth) {
-                    game.player.health = Math.min(game.player.health + POTION_HEAL, game.player.maxHealth);
-                }
-                break;
-            case "WINGED BOOTS":
-                game.player.speed += BOOT_BOOST;
-                break;
-            case "LIFE FRUIT":
-                game.player.maxHealth += LIFE_FRUIT_BOOST;
-                break;
-            case "STRENGTH CHIP":
-                game.player.dmg += CHIP_BOOST;
-                game.player.weapon.damage += game.player.dmg;
-                break;
-        }
-
-        if (item.oncePerWave) {
-            item.boughtThisWave = true;
-        }
     }
 
 
@@ -268,11 +208,6 @@ public class ShopUI {
     }
 
     public void render() {
-        float delta = Gdx.graphics.getDeltaTime();
-        if (rejectedMessageTimer > 0) {
-            rejectedMessageTimer -= delta;
-        }
-
         float screenH = Gdx.graphics.getHeight() + 80;
         float centerX = Gdx.graphics.getWidth() / 2f;
         float centerY = screenH / 2;
@@ -330,14 +265,6 @@ public class ShopUI {
 
                 index++;
             }
-        }
-
-        if (rejectedMessageTimer > 0) {
-            batch.begin();
-            font.getData().setScale(1.3f);
-            font.setColor(Color.RED);
-            drawCenteredText("Purchase rejected! Not enough gold.", 80);
-            batch.end();
         }
 
         // --- 4. Instrukcja na dole ---
@@ -475,14 +402,6 @@ public class ShopUI {
         enemiesKilled = 0;
         goldEarned = 0;
         damageTaken = 0;
-    }
-
-    public void syncFromNetwork(int totalGoldEarned) {
-        goldEarned = totalGoldEarned;
-    }
-
-    public void showPurchaseRejected() {
-        rejectedMessageTimer = 2.0f;
     }
 
     public void dispose() {

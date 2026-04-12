@@ -103,7 +103,7 @@ public abstract class Weapon {
             this.projectileSpeed,
             this.range,
             Bullet.Owner.PLAYER
-        ), getPlayerId());
+        ));
     }
 
     public void render(SpriteBatch batch) {

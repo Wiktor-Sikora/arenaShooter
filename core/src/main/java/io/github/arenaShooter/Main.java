@@ -98,7 +98,7 @@ public class Main extends ApplicationAdapter {
     private NetworkServer networkServer;
     private NetworkClient networkClient;
     private Thread networkServerThread;
-    public boolean networkConnected = false;
+    private boolean networkConnected = false;
     private long networkInputTick = 0L;
     public Menu menu;
     public ScoreboardMenu scoreboardMenu;
@@ -313,12 +313,6 @@ public class Main extends ApplicationAdapter {
                             player.enemiesKilled++;
                             shopUI.recordGold(GOLD_PER_KILL);
                         }
-
-                        if (menu.startMode == Menu.NetworkMode.HOST && networkConnected) {
-                            sendNetworkKill();
-                        } else if (menu.startMode == Menu.NetworkMode.CLIENT && networkConnected) {
-                            sendNetworkKill();
-                        }
                     }
 
                     enemies.get(i).dispose();
@@ -512,9 +506,6 @@ public class Main extends ApplicationAdapter {
         shopUI.resetWavePurchases();
 
         if (menu.startMode == Menu.NetworkMode.CLIENT) {
-            if (shopUI != null) {
-                shopUI.resetStats();
-            }
             clearWorldCollections();
             return;
         }
@@ -712,31 +703,6 @@ public class Main extends ApplicationAdapter {
         }
     }
 
-    public void sendNetworkKill() {
-        if (!networkConnected || networkClient == null || !networkClient.isConnected()) {
-            return;
-        }
-        try {
-            networkClient.sendMessage("KILL " + networkClient.getClientId());
-        } catch (IOException e) {
-            networkConnected = false;
-        }
-    }
-
-    public void sendNetworkBuy(int price, String itemId) {
-        if (!networkConnected || networkClient == null || !networkClient.isConnected()) {
-            return;
-        }
-        try {
-            networkClient.sendMessage("BUY " + networkClient.getClientId() + " " + price + " " + itemId);
-            if (menu.startMode == Menu.NetworkMode.HOST) {
-                player.gold -= price;
-            }
-        } catch (IOException e) {
-            networkConnected = false;
-        }
-    }
-
     private void handleNetworkMessage(String message) {
         if (message == null || message.isBlank()) {
             return;
@@ -763,14 +729,6 @@ public class Main extends ApplicationAdapter {
         }
         if (message.startsWith("SHOOT ")) {
             handleShootMessage(message);
-            return;
-        }
-        if (message.startsWith("GOLD ")) {
-            handleGoldMessage(message);
-            return;
-        }
-        if (message.startsWith("BUY_ACK ") || message.startsWith("BUY_REJECT ")) {
-            handleBuyMessage(message);
             return;
         }
         if (!message.startsWith("SNAPSHOT ")) {
@@ -1098,64 +1056,6 @@ public class Main extends ApplicationAdapter {
         addBullet(new Bullet(this, x, y, direction, tex, width, height, damage, speed, range, Bullet.Owner.PLAYER));
     }
 
-    private void handleGoldMessage(String message) {
-        String[] parts = message.split("\\s+");
-        if (parts.length < 4) {
-            return;
-        }
-        try {
-            int newGoldEarned = Integer.parseInt(parts[2]);
-            int newKills = Integer.parseInt(parts[3]);
-            Gdx.app.postRunnable(() -> {
-                player.goldEarned = newGoldEarned;
-                player.enemiesKilled = newKills;
-                if (shopUI != null) {
-                    shopUI.syncFromNetwork(newGoldEarned);
-                }
-            });
-        } catch (NumberFormatException ignored) {
-        }
-    }
-
-    private void handleBuyMessage(String message) {
-        String[] parts = message.split("\\s+");
-        if (parts.length < 2) {
-            return;
-        }
-        if (message.startsWith("BUY_REJECT ")) {
-            Gdx.app.postRunnable(() -> {
-                if (shopUI != null) {
-                    shopUI.showPurchaseRejected();
-                }
-            });
-            return;
-        }
-        if (message.startsWith("BUY_ACK ")) {
-            if (parts.length >= 4) {
-                String buyerId = parts[1];
-                int newGold;
-                String itemId;
-                try {
-                    newGold = Integer.parseInt(parts[2]);
-                    itemId = parts[3];
-                } catch (NumberFormatException ignored) {
-                    return;
-                }
-                final String fBuyerId = buyerId;
-                final int fNewGold = newGold;
-                final String fItemId = itemId;
-                Gdx.app.postRunnable(() -> {
-                    if (networkClient != null && fBuyerId.equals(networkClient.getClientId())) {
-                        player.gold = fNewGold;
-                        if (menu.startMode != Menu.NetworkMode.HOST && shopUI != null) {
-                            shopUI.applyNetworkPurchase(fItemId);
-                        }
-                    }
-                });
-            }
-        }
-    }
-
     private void handleWorldMessage(String message) {
         if (menu.startMode != Menu.NetworkMode.CLIENT) {
             return;
@@ -1351,7 +1251,7 @@ public class Main extends ApplicationAdapter {
         }
 
         String[] parts = message.split("\\s+");
-        if (parts.length < 13) {
+        if (parts.length < 10) {
             return;
         }
 
@@ -1361,9 +1261,6 @@ public class Main extends ApplicationAdapter {
         float selfY;
         float selfHp;
         float selfRotation;
-        int selfGold;
-        int selfGoldEarned;
-        int selfKills;
         try {
             index++; // server tick, currently unused
             selfId = Integer.parseInt(parts[index++]);
@@ -1372,9 +1269,6 @@ public class Main extends ApplicationAdapter {
             selfHp = Float.parseFloat(parts[index++]);
             selfRotation = Float.parseFloat(parts[index++]);
             index++; // selfWeapon (unused for local player)
-            selfGold = Integer.parseInt(parts[index++]);
-            selfGoldEarned = Integer.parseInt(parts[index++]);
-            selfKills = Integer.parseInt(parts[index++]);
             index++; // lastAckTick
         } catch (NumberFormatException ignored) {
             return;
@@ -1389,8 +1283,8 @@ public class Main extends ApplicationAdapter {
 
         List<RemotePlayerSnapshot> parsed = new ArrayList<>();
         for (int i = 0; i < playersCount && index < parts.length; i++) {
-            String[] p = parts[index++].split(",", 9);
-            if (p.length < 9) {
+            String[] p = parts[index++].split(",", 6);
+            if (p.length < 6) {
                 continue;
             }
             try {
@@ -1413,9 +1307,6 @@ public class Main extends ApplicationAdapter {
                 player.hitbox.y = selfY;
                 player.health = selfHp;
                 player.rotation = selfRotation;
-                player.gold = selfGold;
-                player.goldEarned = selfGoldEarned;
-                player.enemiesKilled = selfKills;
             }
 
             Set<Integer> activeIds = new HashSet<>();
