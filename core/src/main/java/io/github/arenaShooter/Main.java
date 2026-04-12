@@ -310,6 +310,7 @@ public class Main extends ApplicationAdapter {
                     player.gold += GOLD_PER_KILL;
                     player.goldEarned += GOLD_PER_KILL;
                     player.enemiesKilled++;
+                    System.out.println("[GOLD] Kill! " + (menu.startMode != null ? menu.startMode : "null") + " gold=" + player.gold + " enemies=" + player.enemiesKilled + " connected=" + networkConnected);
                     if (shopUI != null) {
                         shopUI.recordKill();
                         shopUI.recordGold(GOLD_PER_KILL);
@@ -709,10 +710,13 @@ public class Main extends ApplicationAdapter {
 
     public void sendNetworkKill() {
         if (!networkConnected || networkClient == null || !networkClient.isConnected()) {
+            System.out.println("[NET] sendNetworkKill: not connected");
             return;
         }
         try {
-            networkClient.sendMessage("KILL " + networkClient.getClientId());
+            String msg = "KILL " + networkClient.getClientId();
+            System.out.println("[NET] Sending: " + msg);
+            networkClient.sendMessage(msg);
         } catch (IOException e) {
             networkConnected = false;
         }
@@ -1104,12 +1108,16 @@ public class Main extends ApplicationAdapter {
             final int fGold = newGold;
             final int fGoldEarned = newGoldEarned;
             final int fKills = newKills;
+            System.out.println("[GOLD] Received GOLD for playerId=" + playerId + " gold=" + newGold + " kills=" + newKills);
             Gdx.app.postRunnable(() -> {
                 RemotePlayerState state = remotePlayers.get(fPlayerId);
                 if (state != null) {
                     state.gold = fGold;
                     state.goldEarned = fGoldEarned;
                     state.enemiesKilled = fKills;
+                    System.out.println("[GOLD] Updated remote player " + fPlayerId + " gold=" + fGold);
+                } else {
+                    System.out.println("[GOLD] RemotePlayerState not found for playerId=" + fPlayerId + " remotePlayers=" + remotePlayers.keySet());
                 }
             });
         } catch (NumberFormatException ignored) {

@@ -436,14 +436,17 @@ public class NetworkServer implements Runnable {
             String clientId = parts[1];
             ClientState state = clientStates.get(clientId);
             if (state == null) {
+                System.out.println("[SERVER] KILL: state not found for clientId=" + clientId);
                 return;
             }
             state.gold += GOLD_PER_KILL;
             state.goldEarned += GOLD_PER_KILL;
             state.enemiesKilled++;
             int playerId = state.playerId;
+            System.out.println("[SERVER] KILL from " + clientId + " (playerId=" + playerId + ") -> gold=" + state.gold);
             for (Map.Entry<String, SocketAddress> entry : connectedClients.entrySet()) {
                 if (!entry.getKey().equals(clientId)) {
+                    System.out.println("[SERVER] Sending GOLD to " + entry.getKey());
                     sendTo(entry.getValue(), "GOLD " + playerId + " " + state.gold + " " + state.goldEarned + " " + state.enemiesKilled);
                 }
             }
