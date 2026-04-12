@@ -189,6 +189,7 @@ public class NetworkClient {
                     if (message.isBlank()) {
                         continue;
                     }
+                    System.out.println("[CLIENT] Received: " + message);
                     for (MessageListener listener : listeners) {
                         listener.onMessage(message);
                     }

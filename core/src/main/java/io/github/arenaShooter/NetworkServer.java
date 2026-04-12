@@ -201,6 +201,7 @@ public class NetworkServer implements Runnable {
                 if (message.isEmpty()) {
                     continue;
                 }
+                System.out.println("[SERVER] Received: " + message);
 
                 handlePacket(message, packet.getSocketAddress());
             } catch (SocketTimeoutException timeout) {
