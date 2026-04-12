@@ -52,6 +52,28 @@ public class NetworkServer implements Runnable {
     public CopyOnWriteArrayList<Player> players = new CopyOnWriteArrayList<>();
     public CopyOnWriteArrayList<Enemy> enemies = new CopyOnWriteArrayList<>();
     public CopyOnWriteArrayList<Bullet> bullets = new CopyOnWriteArrayList<>();
+    public ArrayList<BulletData> syncedBullets = new ArrayList<>();
+
+    public static class EnemyData {
+        float x;
+        float y;
+        float health;
+        byte type;
+    }
+
+    public static class BulletData {
+        float x;
+        float y;
+        float width;
+        float height;
+        float vx;
+        float vy;
+        float rotation;
+        byte owner;
+        float distanceTraveled;
+    }
+
+    private List<EnemyData> syncedEnemies = new ArrayList<>();
 
     private final float MAP_TEXTURE_SIZE = 1500;
     public final float PLAYABLE_AREA_SIZE = 1400;
@@ -71,6 +93,9 @@ public class NetworkServer implements Runnable {
     private final Map<String, Integer> clientPlayerIds = new ConcurrentHashMap<>();
     private final Map<String, Boolean> clientReadyStates = new ConcurrentHashMap<>();
     private final Map<String, ClientState> clientStates = new ConcurrentHashMap<>();
+    private final Map<Integer, Long> lastFireTick = new ConcurrentHashMap<>();
+
+    private static final long FIRE_COOLDOWN_TICKS = 10L;
 
     private volatile long serverTick = 0L;
     private DatagramSocket socket;
@@ -214,6 +239,12 @@ public class NetworkServer implements Runnable {
                     state.x += input.moveX * speed * (float) TICK_DT_SECONDS;
                     state.y += input.moveY * speed * (float) TICK_DT_SECONDS;
                     state.rotation = input.rotation;
+
+                    Long lastFire = lastFireTick.get(input.playerId);
+                    if (input.fire && (lastFire == null || input.tick - lastFire >= FIRE_COOLDOWN_TICKS)) {
+                        spawnBullet(state.x, state.y, state.rotation, (byte)0);
+                        lastFireTick.put(input.playerId, input.tick);
+                    }
                     break;
                 }
             }
@@ -223,19 +254,34 @@ public class NetworkServer implements Runnable {
     }
 
     private void simulateWorld(float deltaSeconds) {
-        for (Enemy enemy : enemies) {
-            enemy.update(deltaSeconds);
+        for (EnemyData enemy : syncedEnemies) {
+            enemyAI(enemy, deltaSeconds);
         }
 
-        for (Bullet bullet : bullets) {
-            bullet.update(deltaSeconds);
-            if (bullet.isExpired()) {
-                bullets.remove(bullet);
-                bullet.dispose();
-            }
-        }
+        updateBullets(deltaSeconds);
 
         clampPlayersToMap();
+    }
+
+    private void enemyAI(EnemyData enemy, float deltaSeconds) {
+        float speed = 50f;
+        float targetX = AREA_OFFSET + PLAYABLE_AREA_SIZE / 2f;
+        float targetY = AREA_OFFSET + PLAYABLE_AREA_SIZE / 2f;
+        
+        for (ClientState state : clientStates.values()) {
+            targetX = state.x;
+            targetY = state.y;
+            break;
+        }
+        
+        float dx = targetX - enemy.x;
+        float dy = targetY - enemy.y;
+        float dist = (float)Math.sqrt(dx * dx + dy * dy);
+        
+        if (dist > 0) {
+            enemy.x += (dx / dist) * speed * deltaSeconds;
+            enemy.y += (dy / dist) * speed * deltaSeconds;
+        }
     }
 
     private void clampPlayersToMap() {
@@ -281,6 +327,27 @@ public class NetworkServer implements Runnable {
                     .append(state.y).append(',')
                     .append(state.hp).append(',')
                     .append(state.rotation);
+            }
+
+            payload.append(" E ").append(syncedEnemies.size());
+            for (EnemyData enemy : syncedEnemies) {
+                char typeChar = enemyTypeChar(enemy.type);
+                payload.append(' ').append(typeChar).append(',')
+                    .append(enemy.x).append(',')
+                    .append(enemy.y).append(',')
+                    .append(enemy.health);
+            }
+
+            payload.append(" B ").append(syncedBullets.size());
+            for (BulletData bullet : syncedBullets) {
+                payload.append(' ').append(bullet.owner == 0 ? 'P' : 'E').append(',')
+                    .append(bullet.x).append(',')
+                    .append(bullet.y).append(',')
+                    .append(bullet.width).append(',')
+                    .append(bullet.height).append(',')
+                    .append(bullet.vx).append(',')
+                    .append(bullet.vy).append(',')
+                    .append(bullet.rotation);
             }
 
             sendTo(entry.getValue(), payload.toString());
@@ -331,6 +398,7 @@ public class NetworkServer implements Runnable {
                 return;
             }
             gameState = GameState.PLAYING;
+            spawnEnemies(1);
             broadcast("START");
             return;
         }
@@ -413,6 +481,60 @@ public class NetworkServer implements Runnable {
         }
 
         broadcast(payload.toString());
+    }
+
+    private void spawnEnemies(int waveNumber) {
+        int playerCount = Math.max(1, connectedClients.size());
+        int enemiesToSpawn = 2 + (waveNumber * 2 * playerCount);
+
+        syncedEnemies.clear();
+        for (int i = 0; i < enemiesToSpawn; i++) {
+            EnemyData data = new EnemyData();
+            data.x = AREA_OFFSET + (float)(Math.random() * PLAYABLE_AREA_SIZE);
+            data.y = AREA_OFFSET + (float)(Math.random() * PLAYABLE_AREA_SIZE);
+            data.type = (byte)(Math.random() * 3);
+            data.health = 100f;
+            syncedEnemies.add(data);
+        }
+    }
+
+    private char enemyTypeChar(byte type) {
+        if (type == 0) return 'K';
+        if (type == 1) return 'Z';
+        return 'S';
+    }
+
+    private void spawnBullet(float x, float y, float rotation, byte owner) {
+        BulletData bullet = new BulletData();
+        float speed = 400f;
+        float rad = (float)Math.toRadians(rotation);
+        bullet.vx = (float)Math.cos(rad) * speed;
+        bullet.vy = (float)Math.sin(rad) * speed;
+        bullet.x = x;
+        bullet.y = y;
+        bullet.width = 8f;
+        bullet.height = 8f;
+        bullet.rotation = rotation;
+        bullet.owner = owner;
+        bullet.distanceTraveled = 0f;
+        syncedBullets.add(bullet);
+    }
+
+    private void updateBullets(float deltaSeconds) {
+        float speed = 400f;
+        float maxRange = 300f;
+        for (int i = syncedBullets.size() - 1; i >= 0; i--) {
+            BulletData b = syncedBullets.get(i);
+            float dist = (float)Math.sqrt(b.vx * b.vx + b.vy * b.vy) * deltaSeconds;
+            b.distanceTraveled += dist;
+            b.x += b.vx * deltaSeconds;
+            b.y += b.vy * deltaSeconds;
+            if (b.distanceTraveled > maxRange ||
+                b.x < AREA_OFFSET || b.x > AREA_OFFSET + PLAYABLE_AREA_SIZE ||
+                b.y < AREA_OFFSET || b.y > AREA_OFFSET + PLAYABLE_AREA_SIZE) {
+                syncedBullets.remove(i);
+            }
+        }
     }
 
     private void broadcast(String payload) {

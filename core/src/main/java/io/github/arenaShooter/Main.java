@@ -98,6 +98,7 @@ public class Main extends ApplicationAdapter {
     private Thread networkServerThread;
     private boolean networkConnected = false;
     private long networkInputTick = 0L;
+    private long lastNetworkSendTime = 0L;
     public Menu menu;
     public ScoreboardMenu scoreboardMenu;
     private LobbyMenu lobbyMenu;
@@ -228,7 +229,6 @@ public class Main extends ApplicationAdapter {
 
         if (gameState == GameState.PLAYING) {
             sendNetworkInput();
-            return;
         } else if (gameState == GameState.DEAD) {
             if (Gdx.input.isKeyJustPressed(Input.Keys.ENTER)) restartGame();
             if (Gdx.input.isKeyJustPressed(Input.Keys.ESCAPE)) Gdx.app.exit();
@@ -274,7 +274,7 @@ public class Main extends ApplicationAdapter {
 
             }
 
-            if (menu.startMode != Menu.NetworkMode.CLIENT) {
+            if (menu.startMode == Menu.NetworkMode.NONE || menu.startMode == Menu.NetworkMode.HOST) {
                 for (int i = 0; i < enemies.size; i++) {
                     if (enemies.get(i).isDisposable()) {
                         player.gold += GOLD_PER_KILL;
@@ -298,7 +298,9 @@ public class Main extends ApplicationAdapter {
                     gameState = GameState.STORE;
                     syncHostGameStateIfNeeded();
                 }
+            }
 
+            if (menu.startMode == Menu.NetworkMode.NONE || menu.startMode == Menu.NetworkMode.HOST) {
                 for (int i = 0; i < bullets.size; i++) {
                     if (bullets.get(i).isExpired()) {
                         bullets.get(i).dispose();
@@ -637,6 +639,16 @@ public class Main extends ApplicationAdapter {
             return;
         }
 
+        if (menu.startMode == Menu.NetworkMode.NONE) {
+            return;
+        }
+
+        long now = System.nanoTime();
+        if (now - lastNetworkSendTime < 50_000_000) {
+            return;
+        }
+        lastNetworkSendTime = now;
+
         float moveX = 0f;
         float moveY = 0f;
 
@@ -668,6 +680,14 @@ public class Main extends ApplicationAdapter {
         if (message.startsWith("START")) {
             Gdx.app.postRunnable(() -> {
                 if (gameState == GameState.LOBBY) {
+                    startNextWave();
+                }
+            });
+            return;
+        }
+        if (message.startsWith("NEXTWAVE")) {
+            Gdx.app.postRunnable(() -> {
+                if (gameState == GameState.STORE) {
                     startNextWave();
                 }
             });
@@ -997,7 +1017,7 @@ public class Main extends ApplicationAdapter {
             }
         }
 
-        if (index >= parts.length || !"B".equals(parts[index])) {
+        if (index >= parts.length || !"B".equals(parts[index].trim())) {
             return;
         }
         index++;
@@ -1040,6 +1060,10 @@ public class Main extends ApplicationAdapter {
     private void applyWorldSnapshot(List<EnemySnapshot> enemySnapshots, List<BulletSnapshot> bulletSnapshots) {
         reconcileEnemies(enemySnapshots);
         reconcileBullets(bulletSnapshots);
+    }
+
+    private void applyEnemySnapshots(List<EnemySnapshot> snapshots) {
+        reconcileEnemies(snapshots);
     }
 
     private void reconcileEnemies(List<EnemySnapshot> snapshots) {
@@ -1195,8 +1219,66 @@ public class Main extends ApplicationAdapter {
             }
         }
 
+        List<EnemySnapshot> enemySnapshots = new ArrayList<>();
+        if (index < parts.length && "E".equals(parts[index])) {
+            index++;
+            int enemyCount = 0;
+            try {
+                enemyCount = Integer.parseInt(parts[index++]);
+            } catch (NumberFormatException ignored) {
+                enemyCount = 0;
+            }
+            for (int i = 0; i < enemyCount && index < parts.length; i++) {
+                String[] e = parts[index++].split(",", 4);
+                if (e.length < 4) continue;
+                try {
+                    EnemySnapshot es = new EnemySnapshot();
+                    es.type = e[0];
+                    es.x = Float.parseFloat(e[1]);
+                    es.y = Float.parseFloat(e[2]);
+                    es.health = Float.parseFloat(e[3]);
+                    enemySnapshots.add(es);
+                } catch (NumberFormatException ignored) {
+                }
+            }
+        }
+
+        final List<EnemySnapshot> finalEnemySnapshots = enemySnapshots;
+        final int finalSelfId = selfId;
+        final List<RemotePlayerSnapshot> finalParsed = parsed;
+
+        List<BulletSnapshot> hostBulletSnapshots = new ArrayList<>();
+        if (index < parts.length && "B".equals(parts[index].trim())) {
+            index++;
+            int bulletCount = 0;
+            try {
+                bulletCount = Integer.parseInt(parts[index++]);
+            } catch (NumberFormatException ignored) {
+                bulletCount = 0;
+            }
+            for (int i = 0; i < bulletCount && index < parts.length; i++) {
+                String[] b = parts[index++].split(",", 8);
+                if (b.length < 8) continue;
+                try {
+                    BulletSnapshot bs = new BulletSnapshot();
+                    bs.owner = b[0];
+                    bs.x = Float.parseFloat(b[1]);
+                    bs.y = Float.parseFloat(b[2]);
+                    bs.width = Float.parseFloat(b[3]);
+                    bs.height = Float.parseFloat(b[4]);
+                    bs.vx = Float.parseFloat(b[5]);
+                    bs.vy = Float.parseFloat(b[6]);
+                    bs.rotation = Float.parseFloat(b[7]);
+                    hostBulletSnapshots.add(bs);
+                } catch (NumberFormatException ignored) {
+                }
+            }
+        }
+
+        final List<BulletSnapshot> finalBulletSnapshots = hostBulletSnapshots;
+
         Gdx.app.postRunnable(() -> {
-            if (menu.startMode == Menu.NetworkMode.CLIENT) {
+            if (menu.startMode == Menu.NetworkMode.CLIENT || menu.startMode == Menu.NetworkMode.HOST) {
                 player.hitbox.x = selfX;
                 player.hitbox.y = selfY;
                 player.health = selfHp;
@@ -1204,11 +1286,14 @@ public class Main extends ApplicationAdapter {
             }
 
             remotePlayers.clear();
-            for (RemotePlayerSnapshot snapshot : parsed) {
-                if (snapshot.id != selfId) {
+            for (RemotePlayerSnapshot snapshot : finalParsed) {
+                if (snapshot.id != finalSelfId) {
                     remotePlayers.put(snapshot.id, snapshot);
                 }
             }
+
+            applyEnemySnapshots(finalEnemySnapshots);
+            reconcileBullets(finalBulletSnapshots);
         });
     }
 

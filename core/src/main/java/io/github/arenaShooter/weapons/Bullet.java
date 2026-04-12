@@ -1,5 +1,6 @@
 package io.github.arenaShooter.weapons;
 
+import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.graphics.g2d.BitmapFont;
 import com.badlogic.gdx.graphics.g2d.GlyphLayout;
@@ -128,8 +129,12 @@ public class Bullet {
             false, false);                   //flip
     }
 
-    public boolean isExpired() {
-        return expired || distanceTraveled >= range;
+public boolean isExpired() {
+        return expired;
+    }
+
+    public void markExpired() {
+        expired = true;
     }
 
     public Vector2 getVelocity() { return new Vector2(velocity); }
@@ -138,11 +143,21 @@ public class Bullet {
 
     public void setRotationSpeed(float rotationSpeed) { this.rotationSpeed = rotationSpeed; }
     public void setRotation(float rotation) { this.rotation = rotation; }
-    public void setVelocity(float vx, float vy) { this.velocity.set(vx, vy); }
+    public void setVelocity(float vx, float vy) {
+        this.velocity.set(vx, vy);
+        this.rotation = (float)Math.toDegrees(Math.atan2(vy, vx)) + 90;
+    }
     public void setPosition(float x, float y) { this.hitbox.setPosition(x, y); }
     public void setSize(float width, float height) { this.hitbox.setSize(width, height); }
     public float getCenterX() { return hitbox.x + hitbox.width / 2;}
     public float getCenterY() { return hitbox.y + hitbox.height / 2;}
+
+    public float getDamage() { return damage; }
+
+    public void hit(Enemy target) {
+        target.takeDamage(damage);
+        expired = true;
+    }
 
     public void dispose() {
 //        if (texture != null) {

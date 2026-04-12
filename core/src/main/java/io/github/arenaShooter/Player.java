@@ -83,7 +83,6 @@ public class  Player extends Entity {
             this.weapon.dispose();
         }
         this.weapon = newWeapon;
-        System.out.println("Selected weapon: " + newWeapon.name);
     }
 
 
@@ -216,8 +215,5 @@ public class  Player extends Entity {
     @Override
     public void kill() {
         alive = false;
-        System.out.println("=== GAME OVER ===");
-        System.out.println("Wave: " + game.waveNumber);
-        System.out.println("Collected gold: " + gold);
     }
 }
