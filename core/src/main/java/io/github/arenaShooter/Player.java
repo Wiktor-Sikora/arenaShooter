@@ -39,6 +39,7 @@ public class  Player extends Entity {
     public int dmgTaken = 0;
     public int goldEarned = 0;
     public int enemiesKilled = 0;
+    public int playerId = 0;
 
     public Player(float startX, float startY, Main game) {
         this.textureHeight = textureWidth = 64;
@@ -139,6 +140,7 @@ public class  Player extends Entity {
         if (Gdx.input.isTouched(Input.Buttons.LEFT)) {
             Vector3 unprojectedCords = game.camera.unproject(new Vector3(Gdx.input.getX(), Gdx.input.getY(), 0f));
             Vector2 direction = new Vector2(unprojectedCords.x - getCenterX(), unprojectedCords.y - getCenterY());
+            weapon.setPlayerId(playerId);
             weapon.shoot(direction);
             game.sendNetworkShoot(getCenterX(), getCenterY(), direction.x, direction.y, weapon.name);
         }

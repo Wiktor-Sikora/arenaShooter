@@ -28,6 +28,15 @@ public abstract class Weapon {
 
     protected Main game;
     long timeSinceLastShot;
+    protected int playerId = -1;
+
+    public void setPlayerId(int playerId) {
+        this.playerId = playerId;
+    }
+
+    protected int getPlayerId() {
+        return playerId;
+    }
 
     public void shoot(Vector2 direction) {
         if (TimeUtils.timeSinceMillis(timeSinceLastShot) < 1000 / rateOfFire) return;
@@ -94,7 +103,7 @@ public abstract class Weapon {
             this.projectileSpeed,
             this.range,
             Bullet.Owner.PLAYER
-        ));
+        ), getPlayerId());
     }
 
     public void render(SpriteBatch batch) {

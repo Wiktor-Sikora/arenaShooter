@@ -32,6 +32,7 @@ public class Bullet {
     private float range;
     private float rotationSpeed;
     private float rotation = 0f;
+    public int playerId = -1;
 
     private Vector2 snapDirectionTo4(Vector2 dir) {
         if (Math.abs(dir.x) > Math.abs(dir.y)) {
@@ -92,7 +93,7 @@ public class Bullet {
         if (owner == Owner.PLAYER) {
             for (Enemy target: this.game.enemies) {
                 if (target.isAlive() && this.hitbox.overlaps(target.hitbox)) {
-                    target.takeDamage(this.damage);
+                    target.takeDamage(this.damage, this.playerId);
                     this.expired = true;
                     return;
                 }
@@ -135,6 +136,7 @@ public class Bullet {
     public Vector2 getVelocity() { return new Vector2(velocity); }
     public float getRotation() { return rotation; }
     public Owner getOwner() { return owner; }
+    public int getPlayerId() { return playerId; }
 
     public void setRotationSpeed(float rotationSpeed) { this.rotationSpeed = rotationSpeed; }
     public void setRotation(float rotation) { this.rotation = rotation; }

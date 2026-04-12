@@ -24,6 +24,7 @@ public abstract class Enemy extends Entity {
     protected float stateTime = 0f;
 
     public boolean isRemote = false;
+    public int lastHitByPlayerId = -1;
 
     // stats
     protected float projectileRange;
