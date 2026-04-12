@@ -47,6 +47,8 @@ public class ShopUI {
     private int goldEarned = 0;
     private int damageTaken = 0;
 
+    private float rejectedMessageTimer = 0f;
+
     public ShopUI(Main game) {
         this.game = game;
         this.batch = new SpriteBatch();
@@ -267,6 +269,15 @@ public class ShopUI {
             }
         }
 
+        if (rejectedMessageTimer > 0) {
+            rejectedMessageTimer -= Gdx.graphics.getDeltaTime();
+            batch.begin();
+            font.getData().setScale(1.3f);
+            font.setColor(Color.RED);
+            drawCenteredText("Purchase rejected! Not enough gold.", 80);
+            batch.end();
+        }
+
         // --- 4. Instrukcja na dole ---
         batch.begin();
         font.getData().setScale(1.3f);
@@ -402,6 +413,14 @@ public class ShopUI {
         enemiesKilled = 0;
         goldEarned = 0;
         damageTaken = 0;
+    }
+
+    public void syncFromNetwork(int totalGoldEarned) {
+        goldEarned = totalGoldEarned;
+    }
+
+    public void showPurchaseRejected() {
+        rejectedMessageTimer = 2.0f;
     }
 
     public void dispose() {

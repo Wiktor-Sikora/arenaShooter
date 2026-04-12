@@ -89,7 +89,12 @@ public class NetworkServer implements Runnable {
         float hp;
         float rotation;
         String weaponName;
+        int gold;
+        int goldEarned;
+        int enemiesKilled;
     }
+
+    private static final int GOLD_PER_KILL = 30;
 
     public void enqueueInput(PlayerInput input) {
         if (input != null) {
@@ -279,6 +284,11 @@ public class NetworkServer implements Runnable {
             float selfRotation = self == null ? 0f : self.rotation;
             String selfWeapon = self == null ? "Gun" : self.weaponName;
 
+            ClientState selfState = self == null ? null : clientStates.get(clientId);
+            int selfGold = selfState == null ? 0 : selfState.gold;
+            int selfGoldEarned = selfState == null ? 0 : selfState.goldEarned;
+            int selfKills = selfState == null ? 0 : selfState.enemiesKilled;
+
             StringBuilder payload = new StringBuilder("SNAPSHOT ")
                 .append(serverTick).append(' ')
                 .append(selfId).append(' ')
@@ -287,6 +297,9 @@ public class NetworkServer implements Runnable {
                 .append(selfHp).append(' ')
                 .append(selfRotation).append(' ')
                 .append(selfWeapon).append(' ')
+                .append(selfGold).append(' ')
+                .append(selfGoldEarned).append(' ')
+                .append(selfKills).append(' ')
                 .append(lastAckTick).append(' ')
                 .append(clientStates.size());
 
@@ -297,7 +310,10 @@ public class NetworkServer implements Runnable {
                     .append(state.y).append(',')
                     .append(state.hp).append(',')
                     .append(state.rotation).append(',')
-                    .append(state.weaponName);
+                    .append(state.weaponName).append(',')
+                    .append(state.gold).append(',')
+                    .append(state.goldEarned).append(',')
+                    .append(state.enemiesKilled);
             }
 
             sendTo(entry.getValue(), payload.toString());
@@ -322,6 +338,9 @@ public class NetworkServer implements Runnable {
                 state.y = AREA_OFFSET + PLAYABLE_AREA_SIZE / 2f;
                 state.hp = 100f;
                 state.weaponName = "Gun";
+                state.gold = 0;
+                state.goldEarned = 0;
+                state.enemiesKilled = 0;
                 return state;
             });
             if (ownerClientId == null) {
@@ -408,6 +427,52 @@ public class NetworkServer implements Runnable {
             } catch (NumberFormatException ignored) {
                 // Ignore malformed packets.
             }
+        }
+
+        if ("KILL".equalsIgnoreCase(parts[0]) && parts.length >= 3) {
+            if (gameState != GameState.PLAYING) {
+                return;
+            }
+            String clientId = parts[1];
+            ClientState state = clientStates.get(clientId);
+            if (state == null) {
+                return;
+            }
+            state.gold += GOLD_PER_KILL;
+            state.goldEarned += GOLD_PER_KILL;
+            state.enemiesKilled++;
+            int playerId = state.playerId;
+            for (Map.Entry<String, SocketAddress> entry : connectedClients.entrySet()) {
+                if (!entry.getKey().equals(clientId)) {
+                    sendTo(entry.getValue(), "GOLD " + playerId + " " + state.gold + " " + state.goldEarned + " " + state.enemiesKilled);
+                }
+            }
+            return;
+        }
+
+        if ("BUY".equalsIgnoreCase(parts[0]) && parts.length >= 4) {
+            if (gameState != GameState.PLAYING && gameState != GameState.STORE) {
+                return;
+            }
+            String clientId = parts[1];
+            ClientState state = clientStates.get(clientId);
+            if (state == null) {
+                return;
+            }
+            int price;
+            try {
+                price = Integer.parseInt(parts[2]);
+            } catch (NumberFormatException ignored) {
+                return;
+            }
+            String itemId = parts[3];
+            if (state.gold < price) {
+                sendTo(connectedClients.get(clientId), "BUY_REJECT " + itemId);
+                return;
+            }
+            state.gold -= price;
+            broadcast("BUY_ACK " + clientId + " " + state.gold + " " + itemId);
+            return;
         }
     }
 
