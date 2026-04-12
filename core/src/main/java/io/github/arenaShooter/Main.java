@@ -304,12 +304,14 @@ public class Main extends ApplicationAdapter {
 
             for (int i = 0; i < enemies.size; i++) {
                 if (enemies.get(i).isDisposable()) {
-                    player.gold += GOLD_PER_KILL;
-                    player.goldEarned += GOLD_PER_KILL;
-                    player.enemiesKilled++;
-                    if (shopUI != null) {
-                        shopUI.recordKill();
-                        shopUI.recordGold(GOLD_PER_KILL);
+                    if (menu.startMode != Menu.NetworkMode.CLIENT) {
+                        player.gold += GOLD_PER_KILL;
+                        player.goldEarned += GOLD_PER_KILL;
+                        player.enemiesKilled++;
+                        if (shopUI != null) {
+                            shopUI.recordKill();
+                            shopUI.recordGold(GOLD_PER_KILL);
+                        }
                     }
 
                     if (networkConnected) {
