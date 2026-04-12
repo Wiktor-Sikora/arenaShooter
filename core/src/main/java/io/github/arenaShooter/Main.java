@@ -156,6 +156,9 @@ public class Main extends ApplicationAdapter {
         float hp;
         String weaponName;
         boolean dead = false;
+        int gold = 0;
+        int goldEarned = 0;
+        int enemiesKilled = 0;
     }
 
     private final Map<Integer, RemotePlayerState> remotePlayers = new ConcurrentHashMap<>();
@@ -304,14 +307,12 @@ public class Main extends ApplicationAdapter {
 
             for (int i = 0; i < enemies.size; i++) {
                 if (enemies.get(i).isDisposable()) {
-                    if (menu.startMode != Menu.NetworkMode.CLIENT) {
-                        player.gold += GOLD_PER_KILL;
-                        player.goldEarned += GOLD_PER_KILL;
-                        player.enemiesKilled++;
-                        if (shopUI != null) {
-                            shopUI.recordKill();
-                            shopUI.recordGold(GOLD_PER_KILL);
-                        }
+                    player.gold += GOLD_PER_KILL;
+                    player.goldEarned += GOLD_PER_KILL;
+                    player.enemiesKilled++;
+                    if (shopUI != null) {
+                        shopUI.recordKill();
+                        shopUI.recordGold(GOLD_PER_KILL);
                     }
 
                     if (networkConnected) {
@@ -1104,10 +1105,11 @@ public class Main extends ApplicationAdapter {
             final int fGoldEarned = newGoldEarned;
             final int fKills = newKills;
             Gdx.app.postRunnable(() -> {
-                if (networkClient != null && fPlayerId == networkClient.getPlayerId()) {
-                    player.gold = fGold;
-                    player.goldEarned = fGoldEarned;
-                    player.enemiesKilled = fKills;
+                RemotePlayerState state = remotePlayers.get(fPlayerId);
+                if (state != null) {
+                    state.gold = fGold;
+                    state.goldEarned = fGoldEarned;
+                    state.enemiesKilled = fKills;
                 }
             });
         } catch (NumberFormatException ignored) {

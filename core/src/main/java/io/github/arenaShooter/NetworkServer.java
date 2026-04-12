@@ -447,7 +447,6 @@ public class NetworkServer implements Runnable {
                     sendTo(entry.getValue(), "GOLD " + playerId + " " + state.gold + " " + state.goldEarned + " " + state.enemiesKilled);
                 }
             }
-            sendTo(connectedClients.get(clientId), "GOLD " + playerId + " " + state.gold + " " + state.goldEarned + " " + state.enemiesKilled);
             return;
         }
 
