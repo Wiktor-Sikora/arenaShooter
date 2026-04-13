@@ -1270,29 +1270,26 @@ public class Main extends ApplicationAdapter {
 
     private void handleBuyMessage(String message) {
         String[] parts = message.split("\\s+");
-        if (parts.length < 2) {
-            return;
-        }
+        if (parts.length < 2) return;
+
         if (message.startsWith("BUY_REJECT ")) {
             Gdx.app.postRunnable(() -> {
-                if (shopUI != null) {
-                    shopUI.showPurchaseRejected();
-                }
+                if (shopUI != null) shopUI.showPurchaseRejected();
             });
             return;
         }
-        if (message.startsWith("BUY_ACK ")) {
-            if (parts.length >= 4) {
-                int newGold = Integer.parseInt(parts[2]);
-                String itemId = parts[3];
-                Gdx.app.postRunnable(() -> {
-                    globalGold = newGold;
-                    if (shopUI != null) {
-                        shopUI.updateGold(globalGold);
-                        shopUI.applyPurchase(itemId, Main.this);
-                    }
-                });
-            }
+
+        if (message.startsWith("BUY_ACK ") && parts.length >= 4) {
+            final int newGold = Integer.parseInt(parts[2]);
+            final String itemId = parts[3];
+
+            Gdx.app.postRunnable(() -> {
+                globalGold = newGold;
+                if (shopUI != null) {
+                    shopUI.updateGold(globalGold);
+                    shopUI.applyPurchase(itemId, Main.this);
+                }
+            });
         }
     }
 
