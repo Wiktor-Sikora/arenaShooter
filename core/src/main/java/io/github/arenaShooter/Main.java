@@ -1383,22 +1383,18 @@ public class Main extends ApplicationAdapter {
     private void handleSnapshotMessage(String message) {
         String[] parts = message.split("\\s+");
 
-        // Upewniamy się, że mamy przynajmniej dane aż do licznika graczy (indeks 12)
         if (parts.length < 13) return;
 
         try {
-            // 1. ODCZYT TWOICH DANYCH (Lokalnego gracza)
+            // 1. ODCZYT TWOICH DANYCH
             int myId = Integer.parseInt(parts[2]);
             float myX = Float.parseFloat(parts[3]);
             float myY = Float.parseFloat(parts[4]);
             float myHp = Float.parseFloat(parts[5]);
-            // rot = 6, weapon = 7, itp.
 
             if (networkClient != null && myId == networkClient.getPlayerId()) {
-                // Serwer wymusza pozycję tylko dla klienta (Host porusza się sam)
                 if (menu.startMode == Menu.NetworkMode.CLIENT) {
                     float dist = Vector2.dst(player.hitbox.x, player.hitbox.y, myX, myY);
-
                     if (dist > 20f) {
                         player.hitbox.setPosition(myX, myY);
                     }
@@ -1406,7 +1402,7 @@ public class Main extends ApplicationAdapter {
                 player.health = myHp;
             }
 
-            // 2. ODCZYT INNYCH GRACZY (Z przecinkowej listy na końcu)
+            // 2. ODCZYT INNYCH GRACZY
             int playerCount = Integer.parseInt(parts[12]);
             int playerStartIndex = 13;
 
@@ -1416,13 +1412,10 @@ public class Main extends ApplicationAdapter {
                 int index = playerStartIndex + i;
                 if (index >= parts.length) break;
 
-                // Dane gracza są oddzielone przecinkami: id,x,y,hp,rot,weapon,...
                 String[] pData = parts[index].split(",");
                 if (pData.length < 6) continue;
 
                 int remoteId = Integer.parseInt(pData[0]);
-
-                // Ignorujemy siebie (aktualizowaliśmy się wyżej)
                 if (networkClient != null && remoteId == networkClient.getPlayerId()) {
                     continue;
                 }
@@ -1435,14 +1428,26 @@ public class Main extends ApplicationAdapter {
                 float rrot = Float.parseFloat(pData[4]);
                 String rweapon = pData[5];
 
-                // Dodajemy lub aktualizujemy zdalnego gracza
-                RemotePlayerState state = remotePlayers.computeIfAbsent(remoteId, k -> {
-                    RemotePlayerState s = new RemotePlayerState();
-                    s.displayX = rx; // Od razu ustawiamy pozycję startową
-                    s.displayY = ry;
-                    s.healthBar = new io.github.arenaShooter.ui.HealthBar(this, 100, 64);
-                    return s;
-                });
+                // DODAWANIE LUB AKTUALIZACJA
+                RemotePlayerState state = remotePlayers.get(remoteId);
+
+                if (state == null) {
+                    // Jeśli gracza nie ma, tworzymy go
+                    final RemotePlayerState newState = new RemotePlayerState();
+                    newState.displayX = rx;
+                    newState.displayY = ry;
+                    newState.hp = rhp;
+                    newState.targetX = rx;
+                    newState.targetY = ry;
+
+                    // BEZPIECZNE TWORZENIE PASKA ZDROWIA W WĄTKU RENDERUJĄCYM
+                    Gdx.app.postRunnable(() -> {
+                        newState.healthBar = new io.github.arenaShooter.ui.HealthBar(this, 100, 64);
+                    });
+
+                    remotePlayers.put(remoteId, newState);
+                    state = newState;
+                }
 
                 state.targetX = rx;
                 state.targetY = ry;
@@ -1452,8 +1457,17 @@ public class Main extends ApplicationAdapter {
                 state.dead = (rhp <= 0);
             }
 
-            // 3. (Opcjonalne, ale bardzo przydatne) Usuwamy graczy, którzy wyszli z gry
-            remotePlayers.keySet().retainAll(currentRemoteIds);
+            // 3. USUWANIE GRACZY (I ICH PASKÓW!)
+            // Musimy być ostrożni, aby usunąć aktora HealthBar ze Stage przed usunięciem gracza
+            for (Integer id : new ArrayList<>(remotePlayers.keySet())) {
+                if (!currentRemoteIds.contains(id)) {
+                    RemotePlayerState removed = remotePlayers.remove(id);
+                    if (removed != null && removed.healthBar != null) {
+                        // Ponownie: usuwanie ze Stage musi być w wątku renderującym
+                        Gdx.app.postRunnable(() -> removed.healthBar.dispose());
+                    }
+                }
+            }
 
         } catch (Exception e) {
             Gdx.app.error("Network", "Błąd parsowania snapshotu: " + message);
