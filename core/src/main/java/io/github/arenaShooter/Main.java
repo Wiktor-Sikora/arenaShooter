@@ -1110,18 +1110,23 @@ public class Main extends ApplicationAdapter {
 
     private void createRemotePlayerBullet(float x, float y, Vector2 direction, String weaponName) {
         Texture tex = networkPlayerBulletTexture;
-        float damage = 10f;
+        float damage = 20f;
         float speed = 500f;
-        float range = 500f;
-        int width = 16;
-        int height = 16;
+        float range = 300f;
+
+        int width = 5;
+        int height = 15;
+
         if ("Uzi".equals(weaponName)) {
             damage = 20f;
+            range = 500f;
         } else if ("Shotgun".equals(weaponName)) {
             damage = 8f;
-            width = 33;
-            height = 14;
+            range = 500f;
+            width = 5;
+            height = 15;
         }
+
         addBullet(new Bullet(this, x, y, direction, tex, width, height, damage, speed, range, Bullet.Owner.PLAYER));
     }
 
@@ -1478,17 +1483,31 @@ public class Main extends ApplicationAdapter {
         for (RemotePlayerState state : remotePlayers.values()) {
             if (state.dead) continue;
 
-            // Prędkość wygładzania ruchu
             float lerp = 15f * delta;
 
+            // Zapamiętujemy pozycję przed ruchem
+            float oldX = state.displayX;
+            float oldY = state.displayY;
+
+            // Płynne dążenie do pozycji z serwera
             state.displayX += (state.targetX - state.displayX) * lerp;
             state.displayY += (state.targetY - state.displayY) * lerp;
 
+            // Płynny obrót
             state.displayRotation = MathUtils.lerpAngleDeg(state.displayRotation, state.targetRotation, lerp);
 
-            state.stateTime += delta;
-            state.isMoving = Math.abs(state.targetX - state.displayX) > 0.5f ||
-                Math.abs(state.targetY - state.displayY) > 0.5f;
+            // OBLICZANIE ANIMACJI (na wzór Player.java)
+            float distanceMoved = Vector2.dst(oldX, oldY, state.displayX, state.displayY);
+
+            // Jeśli postać przesunęła się o więcej niż mikroskopijną wartość, uznajemy ruch
+            if (distanceMoved > 0.05f) {
+                state.isMoving = true;
+                state.stateTime += delta;
+            } else {
+                state.isMoving = false;
+                // W Twoim Player.java: stateTime = 4 oznacza klatkę stania
+                state.stateTime = 4f;
+            }
         }
     }
 
@@ -1503,16 +1522,18 @@ public class Main extends ApplicationAdapter {
 
             if (angle >= 45 && angle < 135) {
                 frame = backWalkAnimation.getKeyFrame(state.stateTime, state.isMoving);
+                remoteFacingLeft = false;
             } else if (angle >= 135 && angle < 225) {
                 frame = sideWalkAnimation.getKeyFrame(state.stateTime, state.isMoving);
                 remoteFacingLeft = true;
             } else if (angle >= 225 && angle < 315) {
                 frame = frontWalkAnimation.getKeyFrame(state.stateTime, state.isMoving);
+                remoteFacingLeft = false;
             } else {
                 frame = sideWalkAnimation.getKeyFrame(state.stateTime, state.isMoving);
+                remoteFacingLeft = false;
             }
 
-            // 2. Rysowanie broni ZA plecami (jeśli celuje w górę)
             boolean weaponBehind = (angle > 45 && angle < 135);
             if (weaponBehind) drawRemoteWeapon(batch, state);
 
