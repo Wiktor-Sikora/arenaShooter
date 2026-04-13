@@ -161,6 +161,8 @@ public class Main extends ApplicationAdapter {
         int goldEarned = 0;
         int enemiesKilled = 0;
 
+        io.github.arenaShooter.ui.HealthBar healthBar;
+
         float stateTime = 0f;
         boolean isMoving = false;
     }
@@ -1438,6 +1440,7 @@ public class Main extends ApplicationAdapter {
                     RemotePlayerState s = new RemotePlayerState();
                     s.displayX = rx; // Od razu ustawiamy pozycję startową
                     s.displayY = ry;
+                    s.healthBar = new io.github.arenaShooter.ui.HealthBar(this, 100, 64);
                     return s;
                 });
 
@@ -1531,21 +1534,16 @@ public class Main extends ApplicationAdapter {
     }
 
     private void renderRemotePlayerHealthBars() {
-        shapeRenderer.setProjectionMatrix(camera.combined);
-        shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
         for (RemotePlayerState state : remotePlayers.values()) {
-            if (state.dead) continue;
+            if (state.dead) {
+                if (state.healthBar != null) state.healthBar.dispose();
+                continue;
+            }
 
-            // Rysujemy pod nogami (displayY - 10)
-            float barWidth = 40f;
-            float healthPercent = state.hp / 100f;
-
-            shapeRenderer.setColor(Color.RED);
-            shapeRenderer.rect(state.displayX + 12f, state.displayY - 10f, barWidth, 5f);
-            shapeRenderer.setColor(Color.GREEN);
-            shapeRenderer.rect(state.displayX + 12f, state.displayY - 10f, barWidth * healthPercent, 5f);
+            if (state.healthBar != null) {
+                state.healthBar.render(state.hp, state.displayX, state.displayY);
+            }
         }
-        shapeRenderer.end();
     }
 
     public Vector2 getClosestPlayerCenter(float fromX, float fromY) {
