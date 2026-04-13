@@ -258,6 +258,10 @@ public class Main extends ApplicationAdapter {
         }
 
         if (gameState == GameState.PLAYING) {
+            if (menu.startMode == Menu.NetworkMode.CLIENT) {
+                player.handleInput(delta);
+            }
+
             sendNetworkInput();
             return;
         } else if (gameState == GameState.DEAD) {
@@ -1435,11 +1439,13 @@ public class Main extends ApplicationAdapter {
                         state.targetX = snapshot.x;
                         state.targetY = snapshot.y;
                         state.targetRotation = snapshot.rotation;
+                        state.hp = snapshot.hp;
                         remotePlayers.put(snapshot.id, state);
                     } else {
                         state.targetX = snapshot.x;
                         state.targetY = snapshot.y;
                         state.targetRotation = snapshot.rotation;
+                        state.hp = snapshot.hp;
                     }
                     state.hp = snapshot.hp;
                     state.weaponName = snapshot.weaponName;
@@ -1452,12 +1458,13 @@ public class Main extends ApplicationAdapter {
     }
 
     private void updateRemotePlayers(float delta) {
-        float lerpFactor = Math.min(1f, delta * 10f);
+//        float lerpFactor = 0.2f;
         for (RemotePlayerState state : remotePlayers.values()) {
             if (state.dead) continue;
-            state.displayX += (state.targetX - state.displayX) * lerpFactor;
-            state.displayY += (state.targetY - state.displayY) * lerpFactor;
-            state.displayRotation += (state.targetRotation - state.displayRotation) * lerpFactor;
+            float smoothing = 10f;
+            state.displayX = MathUtils.lerp(state.displayX, state.targetX, smoothing * delta);
+            state.displayY = MathUtils.lerp(state.displayY, state.targetY, smoothing * delta);
+            state.displayRotation = MathUtils.lerpAngleDeg(state.displayRotation, state.targetRotation, smoothing * delta);
         }
     }
 
