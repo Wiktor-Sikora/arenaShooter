@@ -291,9 +291,9 @@ public class Main extends ApplicationAdapter {
         if (gameState == GameState.PLAYING) {
             if (menu.startMode == Menu.NetworkMode.CLIENT) {
                 player.handleInput(delta);
+                sendNetworkInput();
             }
 
-            sendNetworkInput();
             return;
         } else if (gameState == GameState.DEAD) {
             if (Gdx.input.isKeyJustPressed(Input.Keys.ENTER)) restartGame();
@@ -1401,22 +1401,22 @@ public class Main extends ApplicationAdapter {
             float myY = Float.parseFloat(parts[4]);
             float myHp = Float.parseFloat(parts[5]);
 
-            // W Main.java -> handleSnapshotMessage
             if (networkClient != null && myId == networkClient.getPlayerId()) {
                 if (menu.startMode == Menu.NetworkMode.CLIENT) {
                     float dist = Vector2.dst(player.hitbox.x, player.hitbox.y, myX, myY);
 
-                    if (dist > 60f) {
+                    if (dist > 15f) {
+                        player.hitbox.x = MathUtils.lerp(player.hitbox.x, myX, 0.2f);
+                        player.hitbox.y = MathUtils.lerp(player.hitbox.y, myY, 0.2f);
+                    }
+
+                    if (dist > 150f) {
                         player.hitbox.setPosition(myX, myY);
-                    } else if (dist > 5f) {
-                        player.hitbox.x = MathUtils.lerp(player.hitbox.x, myX, 0.1f);
-                        player.hitbox.y = MathUtils.lerp(player.hitbox.y, myY, 0.1f);
                     }
                 }
                 player.health = myHp;
             }
 
-            // 2. ODCZYT INNYCH GRACZY
             int playerCount = Integer.parseInt(parts[12]);
             int playerStartIndex = 13;
 
