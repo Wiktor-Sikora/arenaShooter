@@ -1456,6 +1456,8 @@ public class Main extends ApplicationAdapter {
                     newState.hp = rhp;
                     newState.targetX = rx;
                     newState.targetY = ry;
+                    newState.isMoving = false;
+                    newState.stateTime = 4f;
 
                     // BEZPIECZNE TWORZENIE PASKA ZDROWIA W WĄTKU RENDERUJĄCYM
                     Gdx.app.postRunnable(() -> {
@@ -1466,17 +1468,27 @@ public class Main extends ApplicationAdapter {
                     state = newState;
                 }
 
-                state.prevX = state.displayX;
-                state.prevY = state.displayY;
+                float oldDisplayX = state.displayX;
+                float oldDisplayY = state.displayY;
 
+                state.prevX = oldDisplayX;
+                state.prevY = oldDisplayY;
                 state.targetX = rx;
                 state.targetY = ry;
                 state.targetRotation = rrot;
                 state.hp = rhp;
                 state.weaponName = rweapon;
                 state.dead = (rhp <= 0);
-
                 state.interpolationTimer = 0f;
+
+                float dx = rx - oldDisplayX;
+                float dy = ry - oldDisplayY;
+                boolean wasMoving = state.isMoving;
+                state.isMoving = (dx * dx + dy * dy) > 0.25f;
+
+                if (!state.isMoving && wasMoving) {
+                    state.stateTime = 4f;
+                }
             }
 
             // 3. USUWANIE GRACZY (I ICH PASKÓW!)
@@ -1497,26 +1509,21 @@ public class Main extends ApplicationAdapter {
     }
 
     private void updateRemotePlayers(float delta) {
-        float interpolationDuration = 0.1f;
+        float interpolationDuration = 0.2f;
 
         for (RemotePlayerState state : remotePlayers.values()) {
             if (state.dead) continue;
 
             state.interpolationTimer += delta;
-
             float alpha = MathUtils.clamp(state.interpolationTimer / interpolationDuration, 0f, 1f);
 
             state.displayX = MathUtils.lerp(state.prevX, state.targetX, alpha);
             state.displayY = MathUtils.lerp(state.prevY, state.targetY, alpha);
-
             state.displayRotation = MathUtils.lerpAngleDeg(state.displayRotation, state.targetRotation, 15f * delta);
 
-            float distanceToTarget = Vector2.dst(state.displayX, state.displayY, state.targetX, state.targetY);
-            if (distanceToTarget > 0.5f) {
-                state.isMoving = true;
+            if (state.isMoving) {
                 state.stateTime += delta;
             } else {
-                state.isMoving = false;
                 state.stateTime = 4f;
             }
         }
