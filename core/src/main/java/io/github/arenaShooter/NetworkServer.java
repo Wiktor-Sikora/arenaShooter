@@ -1,6 +1,7 @@
 package io.github.arenaShooter;
 
 import io.github.arenaShooter.enemies.Enemy;
+import io.github.arenaShooter.ui.ShopUI;
 import io.github.arenaShooter.weapons.Bullet;
 
 import java.io.IOException;
@@ -29,6 +30,8 @@ public class NetworkServer implements Runnable {
         DEAD,
         STORE
     }
+
+    private int globalGold = 0;
 
     public static class PlayerInput {
         public final int playerId;
@@ -89,9 +92,13 @@ public class NetworkServer implements Runnable {
         float hp;
         float rotation;
         String weaponName;
-        int gold;
-        int goldEarned;
         int enemiesKilled;
+        int goldEarned;
+        int damageTaken;
+
+        int speedBonus;
+        int maxHpBonus;
+        int damageBonus;
     }
 
     private static final int GOLD_PER_KILL = 30;
@@ -286,10 +293,10 @@ public class NetworkServer implements Runnable {
             String selfWeapon = self == null ? "Gun" : self.weaponName;
 
             ClientState selfState = self == null ? null : clientStates.get(clientId);
-            int selfGold = selfState == null ? 0 : selfState.gold;
             int selfGoldEarned = selfState == null ? 0 : selfState.goldEarned;
             int selfKills = selfState == null ? 0 : selfState.enemiesKilled;
 
+            // Usuń całkowicie linię z selfGold
             StringBuilder payload = new StringBuilder("SNAPSHOT ")
                 .append(serverTick).append(' ')
                 .append(selfId).append(' ')
@@ -298,9 +305,6 @@ public class NetworkServer implements Runnable {
                 .append(selfHp).append(' ')
                 .append(selfRotation).append(' ')
                 .append(selfWeapon).append(' ')
-                .append(selfGold).append(' ')
-                .append(selfGoldEarned).append(' ')
-                .append(selfKills).append(' ')
                 .append(lastAckTick).append(' ')
                 .append(clientStates.size());
 
@@ -312,9 +316,11 @@ public class NetworkServer implements Runnable {
                     .append(state.hp).append(',')
                     .append(state.rotation).append(',')
                     .append(state.weaponName).append(',')
-                    .append(state.gold).append(',')
                     .append(state.goldEarned).append(',')
-                    .append(state.enemiesKilled);
+                    .append(state.enemiesKilled).append(',')
+                    .append(state.speedBonus).append(',')
+                    .append(state.maxHpBonus).append(',')
+                    .append(state.damageBonus);
             }
 
             sendTo(entry.getValue(), payload.toString());
@@ -339,7 +345,6 @@ public class NetworkServer implements Runnable {
                 state.y = AREA_OFFSET + PLAYABLE_AREA_SIZE / 2f;
                 state.hp = 100f;
                 state.weaponName = "Gun";
-                state.gold = 0;
                 state.goldEarned = 0;
                 state.enemiesKilled = 0;
                 return state;
@@ -430,26 +435,24 @@ public class NetworkServer implements Runnable {
             }
         }
 
-        if ("KILL".equalsIgnoreCase(parts[0]) && parts.length >= 3) {
+        if ("KILL".equalsIgnoreCase(parts[0]) && parts.length >= 2) {
             if (gameState != GameState.PLAYING) {
                 return;
             }
             String clientId = parts[1];
+
+            globalGold += GOLD_PER_KILL;
+
             ClientState state = clientStates.get(clientId);
-            if (state == null) {
-                System.out.println("[SERVER] KILL: state not found for clientId=" + clientId);
-                return;
+            if (state != null) {
+                state.enemiesKilled++;
+                state.goldEarned += GOLD_PER_KILL;
+                System.out.println("[SERVER] KILL from " + clientId + " (playerId=" + state.playerId +
+                    ") -> globalGold=" + globalGold + " kills=" + state.enemiesKilled);
             }
-            state.gold += GOLD_PER_KILL;
-            state.goldEarned += GOLD_PER_KILL;
-            state.enemiesKilled++;
-            int playerId = state.playerId;
-            System.out.println("[SERVER] KILL from " + clientId + " (playerId=" + playerId + ") -> gold=" + state.gold);
-            for (Map.Entry<String, SocketAddress> entry : connectedClients.entrySet()) {
-                if (!entry.getKey().equals(clientId)) {
-                    System.out.println("[SERVER] Sending GOLD to " + entry.getKey());
-                    sendTo(entry.getValue(), "GOLD " + playerId + " " + state.gold + " " + state.goldEarned + " " + state.enemiesKilled);
-                }
+
+            for (SocketAddress recipient : connectedClients.values()) {
+                sendTo(recipient, "GOLD " + globalGold);
             }
             return;
         }
@@ -458,24 +461,50 @@ public class NetworkServer implements Runnable {
             if (gameState != GameState.PLAYING && gameState != GameState.STORE) {
                 return;
             }
+
             String clientId = parts[1];
-            ClientState state = clientStates.get(clientId);
-            if (state == null) {
-                return;
-            }
             int price;
+            String itemId;
+
             try {
                 price = Integer.parseInt(parts[2]);
-            } catch (NumberFormatException ignored) {
+                itemId = parts[3];
+            } catch (NumberFormatException e) {
                 return;
             }
-            String itemId = parts[3];
-            if (state.gold < price) {
+
+
+            if (globalGold < price) {
+
                 sendTo(connectedClients.get(clientId), "BUY_REJECT " + itemId);
+                System.out.println("[SERVER] BUY_REJECT from " + clientId + " - not enough gold (has: " + globalGold + ", needs: " + price + ")");
                 return;
             }
-            state.gold -= price;
-            broadcast("BUY_ACK " + clientId + " " + state.gold + " " + itemId);
+
+            globalGold -= price;
+            System.out.println("[SERVER] BUY_ACK from " + clientId + " - " + itemId + " for " + price + " gold. Remaining: " + globalGold);
+
+
+            ClientState state = clientStates.get(clientId);
+            if (state != null) {
+                switch (itemId) {
+                    case "WINGED_BOOTS":
+                        state.speedBonus += ShopUI.BOOT_BOOST;
+                        break;
+                    case "LIFE_FRUIT":
+                        state.maxHpBonus += ShopUI.LIFE_FRUIT_BOOST;
+                        state.hp = 100 + state.maxHpBonus; // pełne leczenie
+                        break;
+                    case "STRENGTH_CHIP":
+                        state.damageBonus += ShopUI.CHIP_BOOST;
+                        break;
+                }
+            }
+
+            for (SocketAddress recipient : connectedClients.values()) {
+                sendTo(recipient, "BUY_ACK " + clientId + " " + globalGold + " " + itemId);
+            }
+
             return;
         }
     }

@@ -180,6 +180,43 @@ public class ShopUI {
 
     }
 
+    public void updateGold(int gold){
+
+    }
+
+    public void applyPurchase(String itemId, Main game) {
+        Player player = game.player;
+        switch (itemId) {
+            case "HEALTH_POTION":
+                if (player.health < player.maxHealth) {
+                    player.health = Math.min(player.health + POTION_HEAL, player.maxHealth);
+                }
+                break;
+            case "GUN":
+                player.equipWeapon(new Gun(game));
+                player.weapon.damage += player.dmg;
+                break;
+            case "SHOTGUN":
+                player.equipWeapon(new Shotgun(game));
+                player.weapon.damage += player.dmg;
+                break;
+            case "UZI":
+                player.equipWeapon(new Uzi(game));
+                player.weapon.damage += player.dmg;
+                break;
+            case "WINGED_BOOTS":
+                player.speed += BOOT_BOOST;
+                break;
+            case "LIFE_FRUIT":
+                player.maxHealth += LIFE_FRUIT_BOOST;
+                player.health = player.maxHealth;
+                break;
+            case "STRENGTH_CHIP":
+                player.dmg += CHIP_BOOST;
+                if (player.weapon != null) player.weapon.damage += CHIP_BOOST;
+                break;
+        }
+    }
 
     private Texture loadTexture(String path) {
         try {
@@ -231,7 +268,7 @@ public class ShopUI {
         // Statystyki gracza
         font.getData().setScale(1.5f);
         font.setColor(Color.WHITE);
-        drawCenteredText("You have: " + game.player.gold + " G  |  HP: " + (int)game.player.health + "/" + (int)game.player.maxHealth, screenH - 125);
+        drawCenteredText("You have: " + game.globalGold+ " G  |  HP: " + (int)game.player.health + "/" + (int)game.player.maxHealth, screenH - 125);
 
         batch.end();
 
@@ -295,7 +332,7 @@ public class ShopUI {
 
         boolean isFullHp = item.name.equalsIgnoreCase("HEALTH POTION") && game.player.health >= game.player.maxHealth;
 
-        boolean canAfford = game.player.gold >= item.price;
+        boolean canAfford = game.globalGold >= item.price;
 
         // --- KOLORYSTYKA ---
         Color bgColor;

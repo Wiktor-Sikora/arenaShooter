@@ -67,6 +67,10 @@ public class Main extends ApplicationAdapter {
     private BitmapFont font;
     private GlyphLayout layout;
 
+    public int playerSpeedBonus = 0;
+    public int playerMaxHpBonus = 0;
+    public int playerDamageBonus = 0;
+
     private DatabaseManager db;
 
     public ShapeRenderer shapeRenderer;
@@ -102,6 +106,9 @@ public class Main extends ApplicationAdapter {
         public int damageTaken;
     }
 
+    public int globalGold = 0;
+    public int globalGoldEarned = 0;
+
     private NetworkServer networkServer;
     private NetworkClient networkClient;
     private Thread networkServerThread;
@@ -124,6 +131,24 @@ public class Main extends ApplicationAdapter {
     private TextureRegion remotePlayerFrame;
     private Map<String, Texture> remoteWeaponTextures = new HashMap<>();
     private Map<String, float[]> remoteWeaponDimensions = new HashMap<>();
+
+    private static final String LAST_IP_FILE = "last_ip.txt";
+
+    private void saveLastIp(String ip) {
+        try (BufferedWriter writer = new BufferedWriter(new FileWriter(LAST_IP_FILE))) {
+            writer.write(ip);
+        } catch (IOException e) {
+            Gdx.app.error("Config", "Failed to save last IP", e);
+        }
+    }
+
+    private String loadLastIp() {
+        try (BufferedReader reader = new BufferedReader(new FileReader(LAST_IP_FILE))) {
+            return reader.readLine();
+        } catch (IOException e) {
+            return null;
+        }
+    }
 
     private static class EnemySnapshot {
         String type;
@@ -264,7 +289,13 @@ public class Main extends ApplicationAdapter {
 
         String defaultClientHost = System.getProperty("arena.network.host", "127.0.0.1");
         int defaultPort = parsePort(System.getProperty("arena.network.port", "7777"), 7777);
+
+        String savedIp = loadLastIp();
+        if (savedIp != null && !savedIp.isBlank()) {
+            defaultClientHost = savedIp;
+        }
         menu = new Menu(this, defaultClientHost, resolveLocalHostingIp(), defaultPort);
+
         db = new DatabaseManager();
         scoreboardMenu = new ScoreboardMenu(db, font, layout, camera);
         scoreboardMenu.loadHighScores();
@@ -314,11 +345,11 @@ public class Main extends ApplicationAdapter {
 
             return;
         } else if (gameState == GameState.DEAD) {
-            if (Gdx.input.isKeyJustPressed(Input.Keys.ENTER)) restartGame();
-            if (Gdx.input.isKeyJustPressed(Input.Keys.ESCAPE)) Gdx.app.exit();
-            if (Gdx.input.isKeyJustPressed(Input.Keys.Q)) {
-                returnToMenu();
+            if (menu.startMode == Menu.NetworkMode.HOST) {
+                if (Gdx.input.isKeyJustPressed(Input.Keys.ENTER)) restartGame();
             }
+            if (Gdx.input.isKeyJustPressed(Input.Keys.ESCAPE)) Gdx.app.exit();
+            if (Gdx.input.isKeyJustPressed(Input.Keys.Q)) returnToMenu();
         } else if (gameState == GameState.STORE) {
 
             if (Gdx.input.isKeyJustPressed(Input.Keys.ENTER)) {
@@ -402,8 +433,8 @@ public class Main extends ApplicationAdapter {
 
             for (int i = 0; i < enemies.size; i++) {
                 if (enemies.get(i).isDisposable()) {
-                    player.gold += GOLD_PER_KILL;
-                    player.goldEarned += GOLD_PER_KILL;
+                    globalGold += GOLD_PER_KILL;
+                    globalGoldEarned += GOLD_PER_KILL;
                     player.enemiesKilled++;
                     System.out.println("[GOLD] Kill! " + (menu.startMode != null ? menu.startMode : "null") + " gold=" + player.gold + " enemies=" + player.enemiesKilled + " connected=" + networkConnected);
                     if (shopUI != null) {
@@ -702,6 +733,12 @@ public class Main extends ApplicationAdapter {
         shopUI.dispose();
         shopUI = new ShopUI(this);
         waveNumber = 0;
+        globalGold = 0;
+        globalGoldEarned = 0;
+
+        if (menu.startMode == Menu.NetworkMode.HOST && networkConnected) {
+            try { networkClient.sendMessage("RESTART"); } catch (IOException e) {}
+        }
 
         for (int i = 0; i < bullets.size; i++) {
             bullets.get(i).dispose();
@@ -864,6 +901,14 @@ public class Main extends ApplicationAdapter {
             handleBuyMessage(message);
             return;
         }
+        if (message.startsWith("GAME_OVER")) {
+            Gdx.app.postRunnable(() -> gameState = GameState.DEAD);
+            return;
+        }
+        if (message.startsWith("RESTART")) {
+            Gdx.app.postRunnable(() -> restartGame());
+            return;
+        }
         if (!message.startsWith("SNAPSHOT ")) {
             return;
         }
@@ -923,6 +968,8 @@ public class Main extends ApplicationAdapter {
             }
         } else if (selectedMode == Menu.NetworkMode.CLIENT) {
             try {
+                String clientHost = menu.getClientHost();
+                saveLastIp(clientHost);
                 networkConnected = networkClient.connect(menu.getClientHost(), menu.getPort());
                 lobbyMenu = new LobbyMenu(this, String.format("%s:%s", menu.getClientHost(), menu.getPort()));
             } catch (IOException e) {
@@ -1196,32 +1243,15 @@ public class Main extends ApplicationAdapter {
 
     private void handleGoldMessage(String message) {
         String[] parts = message.split("\\s+");
-        if (parts.length < 5) {
-            return;
-        }
+        if (parts.length < 3) return; // format "GOLD <nowe_złoto>"
         try {
-            int playerId = Integer.parseInt(parts[1]);
-            int newGold = Integer.parseInt(parts[2]);
-            int newGoldEarned = Integer.parseInt(parts[3]);
-            int newKills = Integer.parseInt(parts[4]);
-            final int fPlayerId = playerId;
-            final int fGold = newGold;
-            final int fGoldEarned = newGoldEarned;
-            final int fKills = newKills;
-            System.out.println("[GOLD] Received GOLD for playerId=" + playerId + " gold=" + newGold + " kills=" + newKills);
+            int newGold = Integer.parseInt(parts[1]);
             Gdx.app.postRunnable(() -> {
-                RemotePlayerState state = remotePlayers.get(fPlayerId);
-                if (state != null) {
-                    state.gold = fGold;
-                    state.goldEarned = fGoldEarned;
-                    state.enemiesKilled = fKills;
-                    System.out.println("[GOLD] Updated remote player " + fPlayerId + " gold=" + fGold);
-                } else {
-                    System.out.println("[GOLD] RemotePlayerState not found for playerId=" + fPlayerId + " remotePlayers=" + remotePlayers.keySet());
-                }
+                globalGold = newGold;
+                // Aktualizacja HUD (jeśli shopUI używa globalGold)
+                if (shopUI != null) shopUI.updateGold(globalGold);
             });
-        } catch (NumberFormatException ignored) {
-        }
+        } catch (NumberFormatException ignored) {}
     }
 
     private void handleBuyMessage(String message) {
@@ -1239,21 +1269,13 @@ public class Main extends ApplicationAdapter {
         }
         if (message.startsWith("BUY_ACK ")) {
             if (parts.length >= 4) {
-                String buyerId = parts[1];
-                int newGold;
-                String itemId;
-                try {
-                    newGold = Integer.parseInt(parts[2]);
-                    itemId = parts[3];
-                } catch (NumberFormatException ignored) {
-                    return;
-                }
-                final String fBuyerId = buyerId;
-                final int fNewGold = newGold;
-                final String fItemId = itemId;
+                int newGold = Integer.parseInt(parts[2]);
+                String itemId = parts[3];
                 Gdx.app.postRunnable(() -> {
-                    if (networkClient != null && fBuyerId.equals(networkClient.getClientId())) {
-                        player.gold = fNewGold;
+                    globalGold = newGold;
+                    if (shopUI != null) {
+                        shopUI.updateGold(globalGold);
+                        shopUI.applyPurchase(itemId, this);   // <-- DODAJ
                     }
                 });
             }
@@ -1455,7 +1477,6 @@ public class Main extends ApplicationAdapter {
         if (parts.length < 13) return;
 
         try {
-            // 1. ODCZYT TWOICH DANYCH
             int myId = Integer.parseInt(parts[2]);
             float myX = Float.parseFloat(parts[3]);
             float myY = Float.parseFloat(parts[4]);
@@ -1487,26 +1508,34 @@ public class Main extends ApplicationAdapter {
                 if (index >= parts.length) break;
 
                 String[] pData = parts[index].split(",");
-                if (pData.length < 6) continue;
+                if (pData.length < 9) continue;
 
                 int remoteId = Integer.parseInt(pData[0]);
-                if (networkClient != null && remoteId == networkClient.getPlayerId()) {
-                    continue;
-                }
-
-                currentRemoteIds.add(remoteId);
-
                 float rx = Float.parseFloat(pData[1]);
                 float ry = Float.parseFloat(pData[2]);
                 float rhp = Float.parseFloat(pData[3]);
                 float rrot = Float.parseFloat(pData[4]);
                 String rweapon = pData[5];
+                int rSpeedBonus = Integer.parseInt(pData[6]);
+                int rMaxHpBonus = Integer.parseInt(pData[7]);
+                int rDamageBonus = Integer.parseInt(pData[8]);
 
-                // DODAWANIE LUB AKTUALIZACJA
+                if (networkClient != null && remoteId == networkClient.getPlayerId()) {
+                    playerSpeedBonus = rSpeedBonus;
+                    playerMaxHpBonus = rMaxHpBonus;
+                    playerDamageBonus = rDamageBonus;
+                    // Zaktualizuj statystyki gracza
+                    player.speed = 170f + playerSpeedBonus;
+                    player.maxHealth = 100 + playerMaxHpBonus;
+                    player.dmg = playerDamageBonus;
+                    if (player.weapon != null) {
+                        player.weapon.damage = player.weapon.damage + playerDamageBonus;
+                    }
+                }
+
                 RemotePlayerState state = remotePlayers.get(remoteId);
 
                 if (state == null) {
-                    // Jeśli gracza nie ma, tworzymy go
                     final RemotePlayerState newState = new RemotePlayerState();
                     newState.displayX = rx;
                     newState.displayY = ry;
@@ -1516,7 +1545,6 @@ public class Main extends ApplicationAdapter {
                     newState.isMoving = false;
                     newState.stateTime = 4f;
 
-                    // BEZPIECZNE TWORZENIE PASKA ZDROWIA W WĄTKU RENDERUJĄCYM
                     Gdx.app.postRunnable(() -> {
                         newState.healthBar = new io.github.arenaShooter.ui.HealthBar(this, 100, 64);
                     });
@@ -1548,8 +1576,6 @@ public class Main extends ApplicationAdapter {
                 }
             }
 
-            // 3. USUWANIE GRACZY (I ICH PASKÓW!)
-            // Musimy być ostrożni, aby usunąć aktora HealthBar ze Stage przed usunięciem gracza
             for (Integer id : new ArrayList<>(remotePlayers.keySet())) {
                 if (!currentRemoteIds.contains(id)) {
                     RemotePlayerState removed = remotePlayers.remove(id);
