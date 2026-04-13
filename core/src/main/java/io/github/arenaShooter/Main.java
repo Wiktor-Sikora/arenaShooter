@@ -1364,22 +1364,25 @@ public class Main extends ApplicationAdapter {
 
     private void handleSnapshotMessage(String message) {
         String[] parts = message.split("\\s+");
-        if (parts.length < 6) return;
+        if (parts.length < 7) return;
 
         try {
-            int id = Integer.parseInt(parts[1]);
-            float x = Float.parseFloat(parts[2]);
-            float y = Float.parseFloat(parts[3]);
-            float hp = Float.parseFloat(parts[4]);
-            float rot = Float.parseFloat(parts[5]);
-            String weapon = parts.length > 6 ? parts[6] : "Gun";
+            // Z logów wynika: SNAPSHOT [seq] [id] [x] [y] [hp] [rot] [weapon]
+            int playerId = Integer.parseInt(parts[2]);
+            float x = Float.parseFloat(parts[3]);
+            float y = Float.parseFloat(parts[4]);
+            float hp = Float.parseFloat(parts[5]);
+            float rot = Float.parseFloat(parts[6]);
+            String weapon = parts.length > 7 ? parts[7] : "Gun";
 
-            if (networkClient != null && id == networkClient.getPlayerId()) {
-                // To naprawia ruch klienta - serwer mówi nam, gdzie jesteśmy
+            if (networkClient != null && playerId == networkClient.getPlayerId()) {
+                // AKTUALIZACJA LOKALNEGO GRACZA (Klient)
                 player.hitbox.setPosition(x, y);
                 player.health = hp;
+                // Tutaj nie nadpisujemy rotacji, żeby celowanie było płynne
             } else {
-                RemotePlayerState state = remotePlayers.computeIfAbsent(id, k -> new RemotePlayerState());
+                // AKTUALIZACJA INNYCH GRACZY (Widok na Hoście/u innych)
+                RemotePlayerState state = remotePlayers.computeIfAbsent(playerId, k -> new RemotePlayerState());
                 state.targetX = x;
                 state.targetY = y;
                 state.targetRotation = rot;
@@ -1388,7 +1391,7 @@ public class Main extends ApplicationAdapter {
                 state.dead = (hp <= 0);
             }
         } catch (Exception e) {
-            Gdx.app.error("Network", "Error parsing snapshot");
+            Gdx.app.error("Network", "Error parsing snapshot: " + e.getMessage());
         }
     }
 
@@ -1396,22 +1399,18 @@ public class Main extends ApplicationAdapter {
         for (RemotePlayerState state : remotePlayers.values()) {
             if (state.dead) continue;
 
+            // Płynne przejście do pozycji z serwera (Liniowa interpolacja)
+            float lerpFactor = 10f * delta;
             float oldX = state.displayX;
             float oldY = state.displayY;
 
-            // Wygładzanie ruchu
-            state.displayX = MathUtils.lerp(state.displayX, state.targetX, 15f * delta);
-            state.displayY = MathUtils.lerp(state.displayY, state.targetY, 15f * delta);
-            state.displayRotation = MathUtils.lerpAngleDeg(state.displayRotation, state.targetRotation, 15f * delta);
+            state.displayX += (state.targetX - state.displayX) * lerpFactor;
+            state.displayY += (state.targetY - state.displayY) * lerpFactor;
+            state.displayRotation += (state.targetRotation - state.displayRotation) * lerpFactor;
 
-            // Obliczanie czy postać "idzie"
-            if (Vector2.dst(oldX, oldY, state.displayX, state.displayY) > 0.1f) {
-                state.isMoving = true;
-                state.stateTime += delta;
-            } else {
-                state.isMoving = false;
-                state.stateTime = 0;
-            }
+            // Sprawdzanie czy się rusza dla animacji
+            state.isMoving = Math.abs(state.displayX - oldX) > 0.1f || Math.abs(state.displayY - oldY) > 0.1f;
+            state.stateTime += delta;
         }
     }
 
@@ -1460,22 +1459,18 @@ public class Main extends ApplicationAdapter {
     }
 
     private void renderRemotePlayerHealthBars() {
-        if (remotePlayerAtlas == null) {
-            return;
-        }
         shapeRenderer.setProjectionMatrix(camera.combined);
         shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
         for (RemotePlayerState state : remotePlayers.values()) {
             if (state.dead) continue;
-            float barWidth = 64f;
-            float barHeight = 6f;
-            float barX = state.displayX - 16f;
-            float barY = state.displayY - 8f;
-            float healthPercent = Math.max(0, state.hp) / 100f;
-            shapeRenderer.setColor(Color.GRAY);
-            shapeRenderer.rect(barX, barY, barWidth, barHeight);
+
+            float barWidth = 32f;
+            float healthPercent = state.hp / 100f; // Zakładając max hp = 100
+
+            shapeRenderer.setColor(Color.RED);
+            shapeRenderer.rect(state.displayX, state.displayY + 70, barWidth, 5);
             shapeRenderer.setColor(Color.GREEN);
-            shapeRenderer.rect(barX, barY, barWidth * healthPercent, barHeight);
+            shapeRenderer.rect(state.displayX, state.displayY + 70, barWidth * healthPercent, 5);
         }
         shapeRenderer.end();
     }
