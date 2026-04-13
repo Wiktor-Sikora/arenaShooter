@@ -201,21 +201,18 @@ public class Main extends ApplicationAdapter {
         remotePlayerAtlas = new TextureAtlas(Gdx.files.internal("player.atlas"));
         remotePlayerFrame = remotePlayerAtlas.findRegion("player_side_0");
 
-// Animacja BOKI (player_side_0, 1, 2, 3, 4)
         Array<TextureRegion> sideWalkFrames = new Array<>();
         for (int i = 0; i < 5; i++) {
             sideWalkFrames.add(remotePlayerAtlas.findRegion("player_side_" + i));
         }
         sideWalkAnimation = new Animation<>(0.2f, sideWalkFrames, Animation.PlayMode.LOOP);
 
-// Animacja PRZÓD (player_front_0, 1, 2)
         Array<TextureRegion> frontWalkFrames = new Array<>();
         for (int i = 0; i < 3; i++) {
             frontWalkFrames.add(remotePlayerAtlas.findRegion("player_front_" + i));
         }
         frontWalkAnimation = new Animation<>(0.3f, frontWalkFrames, Animation.PlayMode.LOOP);
 
-// Animacja TYŁ (player_back_0, 1, 2)
         Array<TextureRegion> backWalkFrames = new Array<>();
         for (int i = 0; i < 3; i++) {
             backWalkFrames.add(remotePlayerAtlas.findRegion("player_back_" + i));
@@ -1485,27 +1482,20 @@ public class Main extends ApplicationAdapter {
 
             float lerp = 15f * delta;
 
-            // Zapamiętujemy pozycję przed ruchem
             float oldX = state.displayX;
             float oldY = state.displayY;
 
-            // Płynne dążenie do pozycji z serwera
             state.displayX += (state.targetX - state.displayX) * lerp;
             state.displayY += (state.targetY - state.displayY) * lerp;
 
-            // Płynny obrót
             state.displayRotation = MathUtils.lerpAngleDeg(state.displayRotation, state.targetRotation, lerp);
 
-            // OBLICZANIE ANIMACJI (na wzór Player.java)
-            float distanceMoved = Vector2.dst(oldX, oldY, state.displayX, state.displayY);
-
-            // Jeśli postać przesunęła się o więcej niż mikroskopijną wartość, uznajemy ruch
-            if (distanceMoved > 0.05f) {
+            float distanceToTarget = Vector2.dst(state.displayX, state.displayY, state.targetX, state.targetY);
+            if (distanceToTarget > 0.5f) { // Jeśli postać ma do pokonania więcej niż pół piksela
                 state.isMoving = true;
                 state.stateTime += delta;
             } else {
                 state.isMoving = false;
-                // W Twoim Player.java: stateTime = 4 oznacza klatkę stania
                 state.stateTime = 4f;
             }
         }
