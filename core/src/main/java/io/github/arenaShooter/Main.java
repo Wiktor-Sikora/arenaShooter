@@ -151,9 +151,17 @@ public class Main extends ApplicationAdapter {
         float displayX;
         float displayY;
         float displayRotation;
+
+        // Dane z poprzedniego pakietu
+        float prevX;
+        float prevY;
+
+        // Dane z najnowszego pakietu
         float targetX;
         float targetY;
         float targetRotation;
+
+        float interpolationTimer = 0f; // Licznik czasu między pakietami
         float hp;
         String weaponName;
         boolean dead = false;
@@ -162,7 +170,6 @@ public class Main extends ApplicationAdapter {
         int enemiesKilled = 0;
 
         io.github.arenaShooter.ui.HealthBar healthBar;
-
         float stateTime = 0f;
         boolean isMoving = false;
     }
@@ -1451,12 +1458,17 @@ public class Main extends ApplicationAdapter {
                     state = newState;
                 }
 
+                state.prevX = state.displayX;
+                state.prevY = state.displayY;
+
                 state.targetX = rx;
                 state.targetY = ry;
                 state.targetRotation = rrot;
                 state.hp = rhp;
                 state.weaponName = rweapon;
                 state.dead = (rhp <= 0);
+
+                state.interpolationTimer = 0f;
             }
 
             // 3. USUWANIE GRACZY (I ICH PASKÓW!)
@@ -1477,21 +1489,22 @@ public class Main extends ApplicationAdapter {
     }
 
     private void updateRemotePlayers(float delta) {
+        float interpolationDuration = 0.1f;
+
         for (RemotePlayerState state : remotePlayers.values()) {
             if (state.dead) continue;
 
-            float lerp = 15f * delta;
+            state.interpolationTimer += delta;
 
-            float oldX = state.displayX;
-            float oldY = state.displayY;
+            float alpha = MathUtils.clamp(state.interpolationTimer / interpolationDuration, 0f, 1f);
 
-            state.displayX += (state.targetX - state.displayX) * lerp;
-            state.displayY += (state.targetY - state.displayY) * lerp;
+            state.displayX = MathUtils.lerp(state.prevX, state.targetX, alpha);
+            state.displayY = MathUtils.lerp(state.prevY, state.targetY, alpha);
 
-            state.displayRotation = MathUtils.lerpAngleDeg(state.displayRotation, state.targetRotation, lerp);
+            state.displayRotation = MathUtils.lerpAngleDeg(state.displayRotation, state.targetRotation, 15f * delta);
 
             float distanceToTarget = Vector2.dst(state.displayX, state.displayY, state.targetX, state.targetY);
-            if (distanceToTarget > 0.5f) { // Jeśli postać ma do pokonania więcej niż pół piksela
+            if (distanceToTarget > 0.5f) {
                 state.isMoving = true;
                 state.stateTime += delta;
             } else {
