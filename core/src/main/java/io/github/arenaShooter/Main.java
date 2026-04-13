@@ -1419,20 +1419,24 @@ public class Main extends ApplicationAdapter {
         for (RemotePlayerState state : remotePlayers.values()) {
             if (state.dead) continue;
 
-            TextureRegion currentFrame;
-            if (state.isMoving && walkAnimation != null) {
+            TextureRegion currentFrame = null;
+
+            // Sprawdzamy czy animacja istnieje ORAZ czy ma klatki (getKeyFrames().size > 0)
+            if (state.isMoving && walkAnimation != null && walkAnimation.getKeyFrames().length > 0) {
                 currentFrame = walkAnimation.getKeyFrame(state.stateTime);
             } else {
                 currentFrame = remotePlayerFrame;
             }
 
-            // RYSOWANIE GRACZA
+            // Jeśli mimo wszystko currentFrame jest null (np. atlas nie wczytał regionu)
+            if (currentFrame == null) continue;
+
             batch.draw(currentFrame,
                 state.displayX, state.displayY,
-                16f, 32f,   // ORIGIN: Środek postaci (połowa z 32 i 64)
-                32f, 64f,   // Szerokość i Wysokość
-                1f, 1f,     // Skala
-                state.displayRotation); // Rotacja
+                16f, 32f,
+                32f, 64f,
+                1f, 1f,
+                state.displayRotation);
 
             // RYSOWANIE BRONI
             if (state.weaponName != null && remoteWeaponTextures.containsKey(state.weaponName)) {
