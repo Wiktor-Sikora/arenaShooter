@@ -1364,41 +1364,74 @@ public class Main extends ApplicationAdapter {
 
     private void handleSnapshotMessage(String message) {
         String[] parts = message.split("\\s+");
-        // Snapshot ma format: SNAPSHOT [seq] [playerId] [x] [y] [hp] [rot] [weapon]
-        if (parts.length < 7) return;
+
+        // Upewniamy się, że mamy przynajmniej dane aż do licznika graczy (indeks 12)
+        if (parts.length < 13) return;
 
         try {
-            int seq = Integer.parseInt(parts[1]); // Numer sekwencyjny (można zignorować)
-            int playerId = Integer.parseInt(parts[2]); // To jest właściwe ID gracza
-            float x = Float.parseFloat(parts[3]);
-            float y = Float.parseFloat(parts[4]);
-            float hp = Float.parseFloat(parts[5]);
-            float rot = Float.parseFloat(parts[6]);
-            String weapon = parts.length > 7 ? parts[7] : "Gun";
+            // 1. ODCZYT TWOICH DANYCH (Lokalnego gracza)
+            int myId = Integer.parseInt(parts[2]);
+            float myX = Float.parseFloat(parts[3]);
+            float myY = Float.parseFloat(parts[4]);
+            float myHp = Float.parseFloat(parts[5]);
+            // rot = 6, weapon = 7, itp.
 
-            // Sprawdzamy, czy to my (lokalny gracz na tym komputerze)
-            if (networkClient != null && playerId == networkClient.getPlayerId()) {
-                // Jeśli jesteśmy klientem, serwer koryguje naszą pozycję
+            if (networkClient != null && myId == networkClient.getPlayerId()) {
+                // Serwer wymusza pozycję tylko dla klienta (Host porusza się sam)
                 if (menu.startMode == Menu.NetworkMode.CLIENT) {
-                    player.hitbox.setPosition(x, y);
+                    player.hitbox.setPosition(myX, myY);
                 }
-                player.health = hp;
-            } else {
-                // To jest INNY gracz - musimy go dodać do mapy remotePlayers
-                RemotePlayerState state = remotePlayers.computeIfAbsent(playerId, k -> new RemotePlayerState());
-                state.targetX = x;
-                state.targetY = y;
-                state.targetRotation = rot;
-                state.hp = hp;
-                state.weaponName = weapon;
-                state.dead = (hp <= 0);
-
-                // Jeśli to nowa postać, ustaw displayX natychmiast, żeby nie "leciała" z (0,0)
-                if (state.displayX == 0 && state.displayY == 0) {
-                    state.displayX = x;
-                    state.displayY = y;
-                }
+                player.health = myHp;
             }
+
+            // 2. ODCZYT INNYCH GRACZY (Z przecinkowej listy na końcu)
+            int playerCount = Integer.parseInt(parts[12]);
+            int playerStartIndex = 13;
+
+            Set<Integer> currentRemoteIds = new HashSet<>();
+
+            for (int i = 0; i < playerCount; i++) {
+                int index = playerStartIndex + i;
+                if (index >= parts.length) break;
+
+                // Dane gracza są oddzielone przecinkami: id,x,y,hp,rot,weapon,...
+                String[] pData = parts[index].split(",");
+                if (pData.length < 6) continue;
+
+                int remoteId = Integer.parseInt(pData[0]);
+
+                // Ignorujemy siebie (aktualizowaliśmy się wyżej)
+                if (networkClient != null && remoteId == networkClient.getPlayerId()) {
+                    continue;
+                }
+
+                currentRemoteIds.add(remoteId);
+
+                float rx = Float.parseFloat(pData[1]);
+                float ry = Float.parseFloat(pData[2]);
+                float rhp = Float.parseFloat(pData[3]);
+                float rrot = Float.parseFloat(pData[4]);
+                String rweapon = pData[5];
+
+                // Dodajemy lub aktualizujemy zdalnego gracza
+                RemotePlayerState state = remotePlayers.computeIfAbsent(remoteId, k -> {
+                    RemotePlayerState s = new RemotePlayerState();
+                    s.displayX = rx; // Od razu ustawiamy pozycję startową
+                    s.displayY = ry;
+                    return s;
+                });
+
+                state.targetX = rx;
+                state.targetY = ry;
+                state.targetRotation = rrot;
+                state.hp = rhp;
+                state.weaponName = rweapon;
+                state.dead = (rhp <= 0);
+            }
+
+            // 3. (Opcjonalne, ale bardzo przydatne) Usuwamy graczy, którzy wyszli z gry
+            remotePlayers.keySet().retainAll(currentRemoteIds);
+
         } catch (Exception e) {
             Gdx.app.error("Network", "Błąd parsowania snapshotu: " + message);
         }
