@@ -291,8 +291,8 @@ public class Main extends ApplicationAdapter {
         if (gameState == GameState.PLAYING) {
             if (menu.startMode == Menu.NetworkMode.CLIENT) {
                 player.handleInput(delta);
-                sendNetworkInput();
             }
+            sendNetworkInput();
 
             return;
         } else if (gameState == GameState.DEAD) {
@@ -1405,7 +1405,7 @@ public class Main extends ApplicationAdapter {
                 if (menu.startMode == Menu.NetworkMode.CLIENT) {
                     float dist = Vector2.dst(player.hitbox.x, player.hitbox.y, myX, myY);
 
-                    if (dist > 15f) {
+                    if (dist > 25f) {
                         player.hitbox.x = MathUtils.lerp(player.hitbox.x, myX, 0.2f);
                         player.hitbox.y = MathUtils.lerp(player.hitbox.y, myY, 0.2f);
                     }
