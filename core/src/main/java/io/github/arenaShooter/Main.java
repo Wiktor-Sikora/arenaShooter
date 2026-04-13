@@ -1403,13 +1403,40 @@ public class Main extends ApplicationAdapter {
             }
             try {
                 RemotePlayerSnapshot snapshot = new RemotePlayerSnapshot();
-                snapshot.id = Integer.parseInt(p[0]);
-                snapshot.x = Float.parseFloat(p[1]);
-                snapshot.y = Float.parseFloat(p[2]);
-                snapshot.hp = Float.parseFloat(p[3]);
-                snapshot.rotation = Float.parseFloat(p[4]);
-                snapshot.weaponName = p[5];
-                parsed.add(snapshot);
+//                snapshot.id = Integer.parseInt(p[0]);
+//                snapshot.x = Float.parseFloat(p[1]);
+//                snapshot.y = Float.parseFloat(p[2]);
+//                snapshot.hp = Float.parseFloat(p[3]);
+//                snapshot.rotation = Float.parseFloat(p[4]);
+//                snapshot.weaponName = p[5];
+//                parsed.add(snapshot);
+
+                snapshot.id = Integer.parseInt(parts[1]);
+                snapshot.x = Float.parseFloat(parts[2]);
+                snapshot.y = Float.parseFloat(parts[3]);
+                snapshot.rotation = Float.parseFloat(parts[4]);
+                snapshot.hp = Float.parseFloat(parts[5]);
+
+                if (networkClient != null && snapshot.id == networkClient.getPlayerId()) {
+                    return;
+                }
+
+                RemotePlayerState state = remotePlayers.get(snapshot.id);
+                if (state == null) {
+                    state = new RemotePlayerState();
+                    state.displayX = snapshot.x;
+                    state.displayY = snapshot.y;
+                    state.targetX = snapshot.x;
+                    state.targetY = snapshot.y;
+                    state.displayRotation = snapshot.rotation;
+                    state.targetRotation = snapshot.rotation;
+                    remotePlayers.put(snapshot.id, state);
+                } else {
+                    state.targetX = snapshot.x;
+                    state.targetY = snapshot.y;
+                    state.targetRotation = snapshot.rotation;
+                    state.hp = snapshot.hp;
+                }
             } catch (NumberFormatException ignored) {
                 return;
             }
@@ -1461,10 +1488,12 @@ public class Main extends ApplicationAdapter {
 //        float lerpFactor = 0.2f;
         for (RemotePlayerState state : remotePlayers.values()) {
             if (state.dead) continue;
-            float smoothing = 10f;
-            state.displayX = MathUtils.lerp(state.displayX, state.targetX, smoothing * delta);
-            state.displayY = MathUtils.lerp(state.displayY, state.targetY, smoothing * delta);
-            state.displayRotation = MathUtils.lerpAngleDeg(state.displayRotation, state.targetRotation, smoothing * delta);
+            float lerpAlpha = 15f * delta;
+
+            state.displayX = MathUtils.lerp(state.displayX, state.targetX, lerpAlpha);
+            state.displayY = MathUtils.lerp(state.displayY, state.targetY, lerpAlpha);
+
+            state.displayRotation = MathUtils.lerpAngleDeg(state.displayRotation, state.targetRotation, lerpAlpha);
         }
     }
 
