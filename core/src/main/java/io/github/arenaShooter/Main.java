@@ -1473,7 +1473,7 @@ public class Main extends ApplicationAdapter {
 
     private void handleSnapshotMessage(String message) {
         String[] parts = message.split("\\s+");
-        if (parts.length < 13) return;
+        if (parts.length < 10) return;
 
         try {
             int myId = Integer.parseInt(parts[2]);
@@ -1495,8 +1495,8 @@ public class Main extends ApplicationAdapter {
                 }
             }
 
-            int playerCount = Integer.parseInt(parts[12]);
-            int playerStartIndex = 13;
+            int playerCount = Integer.parseInt(parts[9]);
+            int playerStartIndex = 10;
             Set<Integer> currentRemoteIds = new HashSet<>();
 
             for (int i = 0; i < playerCount; i++) {
@@ -1504,10 +1504,10 @@ public class Main extends ApplicationAdapter {
                 if (index >= parts.length) break;
 
                 String[] pData = parts[index].split(",");
-                if (pData.length < 11) continue; // 11 pól
+                if (pData.length < 11) continue;
 
                 int remoteId = Integer.parseInt(pData[0]);
-                currentRemoteIds.add(remoteId); // <--- KLUCZOWE: DODAJEMY ID
+                currentRemoteIds.add(remoteId);
 
                 float rx = Float.parseFloat(pData[1]);
                 float ry = Float.parseFloat(pData[2]);
@@ -1520,8 +1520,8 @@ public class Main extends ApplicationAdapter {
                 int rMaxHpBonus = Integer.parseInt(pData[9]);
                 int rDamageBonus = Integer.parseInt(pData[10]);
 
-                // Jeśli to my – aktualizujemy statystyki i pomijamy tworzenie RemotePlayerState
                 if (networkClient != null && remoteId == networkClient.getPlayerId()) {
+                    currentRemoteIds.add(remoteId);
                     playerSpeedBonus = rSpeedBonus;
                     playerMaxHpBonus = rMaxHpBonus;
                     playerDamageBonus = rDamageBonus;
@@ -1533,10 +1533,9 @@ public class Main extends ApplicationAdapter {
                     }
                     player.goldEarned = rGoldEarned;
                     player.enemiesKilled = rEnemiesKilled;
-                    continue; // nie tworzymy RemotePlayerState dla siebie
+                    continue;
                 }
 
-                // Obsługa graczy zdalnych
                 RemotePlayerState state = remotePlayers.get(remoteId);
                 if (state == null) {
                     final RemotePlayerState newState = new RemotePlayerState();
