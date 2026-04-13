@@ -72,6 +72,14 @@ public class Main extends ApplicationAdapter {
 
     private com.badlogic.gdx.graphics.g2d.Animation<TextureRegion> walkAnimation;
 
+    private float clientTargetX, clientTargetY;
+    private float clientPrevX, clientPrevY;
+    private float clientInterpTimer = 0f;
+    private boolean clientMoving = false;
+
+    private java.lang.reflect.Field playerMovingField;
+    private java.lang.reflect.Field playerStateTimeField;
+
     private final float MAP_TEXTURE_SIZE = 1500;
     public final float PLAYABLE_AREA_SIZE = 1400;
     public final float AREA_OFFSET = (MAP_TEXTURE_SIZE - PLAYABLE_AREA_SIZE) / 2f;
@@ -235,6 +243,15 @@ public class Main extends ApplicationAdapter {
 
         player = new Player(AREA_OFFSET + PLAYABLE_AREA_SIZE / 2, AREA_OFFSET + PLAYABLE_AREA_SIZE / 2, this);
 
+        try {
+            playerMovingField = Player.class.getDeclaredField("moving");
+            playerMovingField.setAccessible(true);
+            playerStateTimeField = Player.class.getDeclaredField("stateTime");
+            playerStateTimeField.setAccessible(true);
+        } catch (NoSuchFieldException e) {
+            Gdx.app.error("Reflection", "Cannot access player fields", e);
+        }
+
         playerHud = new PlayerHud(this);
         shopUI = new ShopUI(this);
 
@@ -317,6 +334,20 @@ public class Main extends ApplicationAdapter {
 
     private void logic() {
         float delta = Gdx.graphics.getDeltaTime();
+
+        if (gameState == GameState.PLAYING && menu.startMode == Menu.NetworkMode.CLIENT) {
+            try {
+                playerMovingField.setBoolean(player, clientMoving);
+                if (clientMoving) {
+                    float currentStateTime = playerStateTimeField.getFloat(player);
+                    playerStateTimeField.setFloat(player, currentStateTime + delta);
+                } else {
+                    playerStateTimeField.setFloat(player, 4f);
+                }
+            } catch (IllegalAccessException e) {
+                e.printStackTrace();
+            }
+        }
 
         if (gameState == GameState.PLAYING) {
             player.update(delta);
@@ -1403,19 +1434,23 @@ public class Main extends ApplicationAdapter {
 
             if (networkClient != null && myId == networkClient.getPlayerId()) {
                 if (menu.startMode == Menu.NetworkMode.CLIENT) {
-                    float dist = Vector2.dst(player.hitbox.x, player.hitbox.y, myX, myY);
+                    // Zapamiętaj starą pozycję
+                    clientPrevX = player.hitbox.x;
+                    clientPrevY = player.hitbox.y;
+                    clientTargetX = myX;
+                    clientTargetY = myY;
+                    clientInterpTimer = 0f;
 
-                    if (dist > 25f) {
-                        player.hitbox.x = MathUtils.lerp(player.hitbox.x, myX, 0.2f);
-                        player.hitbox.y = MathUtils.lerp(player.hitbox.y, myY, 0.2f);
+                    float dx = myX - clientPrevX;
+                    float dy = myY - clientPrevY;
+                    clientMoving = (dx * dx + dy * dy) > 0.25f;
+
+                    try {
+                        playerMovingField.setBoolean(player, clientMoving);
+                    } catch (IllegalAccessException e) {
+                        e.printStackTrace();
                     }
 
-                    if (dist > 150f) {
-                        player.hitbox.setPosition(myX, myY);
-                    }
-                }
-
-                if (menu.startMode == Menu.NetworkMode.CLIENT) {
                     player.health = myHp;
                 }
             }
