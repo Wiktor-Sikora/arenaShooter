@@ -1363,39 +1363,32 @@ public class Main extends ApplicationAdapter {
     }
 
     private void handleSnapshotMessage(String message) {
-        // Rozbijamy wiadomość: "SNAPSHOT id x y rotation hp ..."
         String[] parts = message.split("\\s+");
-        if (parts.length < 5) return;
+        if (parts.length < 6) return;
 
         try {
             int id = Integer.parseInt(parts[1]);
+            float x = Float.parseFloat(parts[2]);
+            float y = Float.parseFloat(parts[3]);
+            float hp = Float.parseFloat(parts[4]);
+            float rot = Float.parseFloat(parts[5]);
+            String weapon = parts.length > 6 ? parts[6] : "Gun";
 
-            // KLUCZOWE: Jeśli to nasze ID, ignorujemy, żeby nas nie "teleportowało"
-            if (networkClient != null && id == networkClient.getPlayerId()) return;
-
-            float netX = Float.parseFloat(parts[2]);
-            float netY = Float.parseFloat(parts[3]);
-            float netRot = Float.parseFloat(parts[4]);
-
-            RemotePlayerState state = remotePlayers.get(id);
-            if (state == null) {
-                state = new RemotePlayerState();
-                // Przy pierwszym pojawieniu się ustawiamy od razu display i target
-                state.displayX = netX;
-                state.displayY = netY;
-                state.targetX = netX;
-                state.targetY = netY;
-                state.displayRotation = netRot;
-                state.targetRotation = netRot;
-                remotePlayers.put(id, state);
+            if (networkClient != null && id == networkClient.getPlayerId()) {
+                // To naprawia ruch klienta - serwer mówi nam, gdzie jesteśmy
+                player.hitbox.setPosition(x, y);
+                player.health = hp;
             } else {
-                // Przy kolejnych pakietach zmieniamy TYLKO cel (target)
-                state.targetX = netX;
-                state.targetY = netY;
-                state.targetRotation = netRot;
+                RemotePlayerState state = remotePlayers.computeIfAbsent(id, k -> new RemotePlayerState());
+                state.targetX = x;
+                state.targetY = y;
+                state.targetRotation = rot;
+                state.hp = hp;
+                state.weaponName = weapon;
+                state.dead = (hp <= 0);
             }
-        } catch (NumberFormatException e) {
-            Gdx.app.error("Network", "Błąd parsowania: " + message);
+        } catch (Exception e) {
+            Gdx.app.error("Network", "Error parsing snapshot");
         }
     }
 
@@ -1427,24 +1420,36 @@ public class Main extends ApplicationAdapter {
             if (state.dead) continue;
 
             TextureRegion currentFrame;
-            // Sprawdzamy czy animacja istnieje i czy gracz się rusza
             if (state.isMoving && walkAnimation != null) {
                 currentFrame = walkAnimation.getKeyFrame(state.stateTime);
             } else {
                 currentFrame = remotePlayerFrame;
             }
 
+            // RYSOWANIE GRACZA
             batch.draw(currentFrame,
                 state.displayX, state.displayY,
-                16f, 16f, 32f, 64f, 1f, 1f,
-                state.displayRotation);
+                16f, 32f,   // ORIGIN: Środek postaci (połowa z 32 i 64)
+                32f, 64f,   // Szerokość i Wysokość
+                1f, 1f,     // Skala
+                state.displayRotation); // Rotacja
 
-            // Rysowanie broni
+            // RYSOWANIE BRONI
             if (state.weaponName != null && remoteWeaponTextures.containsKey(state.weaponName)) {
                 Texture weaponTex = remoteWeaponTextures.get(state.weaponName);
                 float[] dims = remoteWeaponDimensions.get(state.weaponName);
+
                 if (weaponTex != null && dims != null) {
-                    batch.draw(weaponTex, state.displayX + 8f, state.displayY + 24f, 8f, 8f, dims[0], dims[1], 1f, 1f);
+                    // Musimy użyć pełnej wersji batch.draw, aby rotacja działała
+                    batch.draw(weaponTex,
+                        state.displayX + 8f, state.displayY + 24f, // x, y
+                        8f, 8f,                                   // originX, originY (środek obrotu broni)
+                        dims[0], dims[1],                         // width, height
+                        1f, 1f,                                   // scaleX, scaleY
+                        state.displayRotation,                    // rotation
+                        0, 0,                                     // srcX, srcY
+                        weaponTex.getWidth(), weaponTex.getHeight(), // srcWidth, srcHeight
+                        false, false);                            // flipX, flipY
                 }
             }
         }
