@@ -1401,15 +1401,16 @@ public class Main extends ApplicationAdapter {
             float myY = Float.parseFloat(parts[4]);
             float myHp = Float.parseFloat(parts[5]);
 
+            // W Main.java -> handleSnapshotMessage
             if (networkClient != null && myId == networkClient.getPlayerId()) {
                 if (menu.startMode == Menu.NetworkMode.CLIENT) {
                     float dist = Vector2.dst(player.hitbox.x, player.hitbox.y, myX, myY);
-                    if (dist > 5f) { // Mała korekta - wygładzaj
-                        player.hitbox.x = MathUtils.lerp(player.hitbox.x, myX, 0.2f);
-                        player.hitbox.y = MathUtils.lerp(player.hitbox.y, myY, 0.2f);
-                    }
-                    if (dist > 150f) { // Duży lag - teleportuj
+
+                    if (dist > 60f) {
                         player.hitbox.setPosition(myX, myY);
+                    } else if (dist > 5f) {
+                        player.hitbox.x = MathUtils.lerp(player.hitbox.x, myX, 0.1f);
+                        player.hitbox.y = MathUtils.lerp(player.hitbox.y, myY, 0.1f);
                     }
                 }
                 player.health = myHp;
