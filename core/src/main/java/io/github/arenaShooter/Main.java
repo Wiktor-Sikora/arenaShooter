@@ -77,7 +77,6 @@ public class Main extends ApplicationAdapter {
     private float clientInterpTimer = 0f;
     private boolean clientMoving = false;
 
-    private java.lang.reflect.Field playerMovingField;
     private java.lang.reflect.Field playerStateTimeField;
 
     private final float MAP_TEXTURE_SIZE = 1500;
@@ -244,8 +243,6 @@ public class Main extends ApplicationAdapter {
         player = new Player(AREA_OFFSET + PLAYABLE_AREA_SIZE / 2, AREA_OFFSET + PLAYABLE_AREA_SIZE / 2, this);
 
         try {
-            playerMovingField = Player.class.getDeclaredField("moving");
-            playerMovingField.setAccessible(true);
             playerStateTimeField = Player.class.getDeclaredField("stateTime");
             playerStateTimeField.setAccessible(true);
         } catch (NoSuchFieldException e) {
@@ -336,11 +333,19 @@ public class Main extends ApplicationAdapter {
         float delta = Gdx.graphics.getDeltaTime();
 
         if (gameState == GameState.PLAYING && menu.startMode == Menu.NetworkMode.CLIENT) {
+            float interpDuration = 0.2f;
+            clientInterpTimer += delta;
+            float alpha = MathUtils.clamp(clientInterpTimer / interpDuration, 0f, 1f);
+            float newX = MathUtils.lerp(clientPrevX, clientTargetX, alpha);
+            float newY = MathUtils.lerp(clientPrevY, clientTargetY, alpha);
+            player.hitbox.setPosition(newX, newY);
+        }
+
+        if (gameState == GameState.PLAYING && menu.startMode == Menu.NetworkMode.CLIENT) {
             try {
-                playerMovingField.setBoolean(player, clientMoving);
                 if (clientMoving) {
-                    float currentStateTime = playerStateTimeField.getFloat(player);
-                    playerStateTimeField.setFloat(player, currentStateTime + delta);
+                    float current = playerStateTimeField.getFloat(player);
+                    playerStateTimeField.setFloat(player, current + delta);
                 } else {
                     playerStateTimeField.setFloat(player, 4f);
                 }
@@ -1434,22 +1439,15 @@ public class Main extends ApplicationAdapter {
 
             if (networkClient != null && myId == networkClient.getPlayerId()) {
                 if (menu.startMode == Menu.NetworkMode.CLIENT) {
-                    // Zapamiętaj starą pozycję
+
                     clientPrevX = player.hitbox.x;
                     clientPrevY = player.hitbox.y;
                     clientTargetX = myX;
                     clientTargetY = myY;
                     clientInterpTimer = 0f;
-
                     float dx = myX - clientPrevX;
                     float dy = myY - clientPrevY;
                     clientMoving = (dx * dx + dy * dy) > 0.25f;
-
-                    try {
-                        playerMovingField.setBoolean(player, clientMoving);
-                    } catch (IllegalAccessException e) {
-                        e.printStackTrace();
-                    }
 
                     player.health = myHp;
                 }
