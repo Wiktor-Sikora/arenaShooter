@@ -64,7 +64,7 @@ public class NetworkServer implements Runnable {
     float WORLD_WIDTH = 1500f;
     float WORLD_HEIGHT = 1500f;
 
-    private static final long TICK_RATE_HZ = 20L;
+    private static final long TICK_RATE_HZ = 60L;
     private static final double TICK_DT_SECONDS = 1.0 / TICK_RATE_HZ;
     private static final double MAX_FRAME_SECONDS = 0.25;
     private static final int MAX_TICKS_PER_FRAME = 5;

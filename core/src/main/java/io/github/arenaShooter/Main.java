@@ -1404,7 +1404,11 @@ public class Main extends ApplicationAdapter {
             if (networkClient != null && myId == networkClient.getPlayerId()) {
                 if (menu.startMode == Menu.NetworkMode.CLIENT) {
                     float dist = Vector2.dst(player.hitbox.x, player.hitbox.y, myX, myY);
-                    if (dist > 20f) {
+                    if (dist > 5f) { // Mała korekta - wygładzaj
+                        player.hitbox.x = MathUtils.lerp(player.hitbox.x, myX, 0.2f);
+                        player.hitbox.y = MathUtils.lerp(player.hitbox.y, myY, 0.2f);
+                    }
+                    if (dist > 150f) { // Duży lag - teleportuj
                         player.hitbox.setPosition(myX, myY);
                     }
                 }
