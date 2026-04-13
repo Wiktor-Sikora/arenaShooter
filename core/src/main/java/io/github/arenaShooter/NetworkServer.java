@@ -387,6 +387,31 @@ public class NetworkServer implements Runnable {
             return;
         }
 
+        if ("RESTART".equalsIgnoreCase(parts[0]) && parts.length >= 2) {
+            String clientId = parts[1];
+            if (!clientId.equals(ownerClientId)) return;
+
+            gameState = GameState.PLAYING;
+            globalGold = 0;
+
+
+            for (ClientState state : clientStates.values()) {
+                state.hp = 100;
+                state.x = AREA_OFFSET + PLAYABLE_AREA_SIZE / 2f;
+                state.y = AREA_OFFSET + PLAYABLE_AREA_SIZE / 2f;
+                state.speedBonus = 0;
+                state.maxHpBonus = 0;
+                state.damageBonus = 0;
+                state.weaponName = "Gun";
+
+                state.goldEarned = 0;
+                state.enemiesKilled = 0;
+            }
+
+            broadcast("RESTART");
+            return;
+        }
+
         if ("STATE".equalsIgnoreCase(parts[0]) && parts.length >= 4) {
             String clientId = parts[1];
             if (!clientId.equals(ownerClientId)) {
@@ -497,12 +522,25 @@ public class NetworkServer implements Runnable {
             ClientState state = clientStates.get(clientId);
             if (state != null) {
                 switch (itemId) {
-                    case "GUN": state.weaponName = "Gun"; break;
-                    case "SHOTGUN": state.weaponName = "Shotgun"; break;
-                    case "UZI": state.weaponName = "Uzi"; break;
-                    case "WINGED_BOOTS": state.speedBonus += ShopUI.BOOT_BOOST; break;
-                    case "LIFE_FRUIT": state.maxHpBonus += ShopUI.LIFE_FRUIT_BOOST; state.hp = 100 + state.maxHpBonus; break;
-                    case "STRENGTH_CHIP": state.damageBonus += ShopUI.CHIP_BOOST; break;
+                    case "GUN":
+                        state.weaponName = "Gun";
+                        break;
+                    case "SHOTGUN":
+                        state.weaponName = "Shotgun";
+                        break;
+                    case "UZI":
+                        state.weaponName = "Uzi";
+                        break;
+                    case "WINGED_BOOTS":
+                        state.speedBonus += ShopUI.BOOT_BOOST;
+                        break;
+                    case "LIFE_FRUIT":
+                        state.maxHpBonus += ShopUI.LIFE_FRUIT_BOOST;
+                        state.hp = 100 + state.maxHpBonus;
+                        break;
+                    case "STRENGTH_CHIP":
+                        state.damageBonus += ShopUI.CHIP_BOOST;
+                        break;
                 }
             }
 

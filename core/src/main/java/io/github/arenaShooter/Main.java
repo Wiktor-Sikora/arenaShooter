@@ -29,6 +29,10 @@ import io.github.arenaShooter.ui.Menu;
 import io.github.arenaShooter.ui.ScoreboardMenu;
 import io.github.arenaShooter.weapons.Bullet;
 import io.github.arenaShooter.DatabaseManager;
+import io.github.arenaShooter.weapons.Gun;
+import io.github.arenaShooter.weapons.Shotgun;
+import io.github.arenaShooter.weapons.Uzi;
+
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.FileReader;
@@ -1540,6 +1544,20 @@ public class Main extends ApplicationAdapter {
                     player.dmg = playerDamageBonus;
                     if (player.weapon != null) {
                         player.weapon.damage = player.weapon.damage + playerDamageBonus;
+                    }
+                    if (!player.weapon.name.equals(rweapon)) {
+                        switch (rweapon) {
+                            case "Gun":
+                                player.equipWeapon(new Gun(this));
+                                break;
+                            case "Shotgun":
+                                player.equipWeapon(new Shotgun(this));
+                                break;
+                            case "Uzi":
+                                player.equipWeapon(new Uzi(this));
+                                break;
+                        }
+                        player.weapon.damage += player.dmg;
                     }
                     player.goldEarned = rGoldEarned;
                     player.enemiesKilled = rEnemiesKilled;
