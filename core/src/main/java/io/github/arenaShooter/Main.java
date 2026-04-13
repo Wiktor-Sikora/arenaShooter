@@ -757,6 +757,7 @@ public class Main extends ApplicationAdapter {
         waveNumber = 0;
         globalGold = 0;
         globalGoldEarned = 0;
+        remotePlayers.clear();
 
         if (menu.startMode == Menu.NetworkMode.HOST && networkConnected) {
             try { networkClient.sendMessage("RESTART"); } catch (IOException e) {}
@@ -928,7 +929,10 @@ public class Main extends ApplicationAdapter {
             return;
         }
         if (message.startsWith("RESTART")) {
-            Gdx.app.postRunnable(() -> restartGame());
+            Gdx.app.postRunnable(() -> {
+                gameState = GameState.PLAYING;
+                restartGame();
+            });
             return;
         }
         if (!message.startsWith("SNAPSHOT ")) {
@@ -1288,6 +1292,7 @@ public class Main extends ApplicationAdapter {
         }
 
         if (message.startsWith("BUY_ACK ") && parts.length >= 4) {
+            final String buyerId = parts[1];
             final int newGold = Integer.parseInt(parts[2]);
             final String itemId = parts[3];
 
@@ -1295,7 +1300,9 @@ public class Main extends ApplicationAdapter {
                 globalGold = newGold;
                 if (shopUI != null) {
                     shopUI.updateGold(globalGold);
-                    shopUI.applyPurchase(itemId, Main.this);
+                    if (networkClient != null && buyerId.equals(networkClient.getClientId())) {
+                        shopUI.applyPurchase(itemId, Main.this);
+                    }
                 }
             });
         }

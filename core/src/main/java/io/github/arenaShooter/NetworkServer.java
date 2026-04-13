@@ -393,6 +393,8 @@ public class NetworkServer implements Runnable {
 
             gameState = GameState.PLAYING;
             globalGold = 0;
+            bullets.clear();
+            enemies.clear();
 
 
             for (ClientState state : clientStates.values()) {
