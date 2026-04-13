@@ -1364,24 +1364,27 @@ public class Main extends ApplicationAdapter {
 
     private void handleSnapshotMessage(String message) {
         String[] parts = message.split("\\s+");
+        // Snapshot ma format: SNAPSHOT [seq] [playerId] [x] [y] [hp] [rot] [weapon]
         if (parts.length < 7) return;
 
         try {
-            // Z logów wynika: SNAPSHOT [seq] [id] [x] [y] [hp] [rot] [weapon]
-            int playerId = Integer.parseInt(parts[2]);
+            int seq = Integer.parseInt(parts[1]); // Numer sekwencyjny (można zignorować)
+            int playerId = Integer.parseInt(parts[2]); // To jest właściwe ID gracza
             float x = Float.parseFloat(parts[3]);
             float y = Float.parseFloat(parts[4]);
             float hp = Float.parseFloat(parts[5]);
             float rot = Float.parseFloat(parts[6]);
             String weapon = parts.length > 7 ? parts[7] : "Gun";
 
+            // Sprawdzamy, czy to my (lokalny gracz na tym komputerze)
             if (networkClient != null && playerId == networkClient.getPlayerId()) {
-                // AKTUALIZACJA LOKALNEGO GRACZA (Klient)
-                player.hitbox.setPosition(x, y);
+                // Jeśli jesteśmy klientem, serwer koryguje naszą pozycję
+                if (menu.startMode == Menu.NetworkMode.CLIENT) {
+                    player.hitbox.setPosition(x, y);
+                }
                 player.health = hp;
-                // Tutaj nie nadpisujemy rotacji, żeby celowanie było płynne
             } else {
-                // AKTUALIZACJA INNYCH GRACZY (Widok na Hoście/u innych)
+                // To jest INNY gracz - musimy go dodać do mapy remotePlayers
                 RemotePlayerState state = remotePlayers.computeIfAbsent(playerId, k -> new RemotePlayerState());
                 state.targetX = x;
                 state.targetY = y;
@@ -1389,9 +1392,15 @@ public class Main extends ApplicationAdapter {
                 state.hp = hp;
                 state.weaponName = weapon;
                 state.dead = (hp <= 0);
+
+                // Jeśli to nowa postać, ustaw displayX natychmiast, żeby nie "leciała" z (0,0)
+                if (state.displayX == 0 && state.displayY == 0) {
+                    state.displayX = x;
+                    state.displayY = y;
+                }
             }
         } catch (Exception e) {
-            Gdx.app.error("Network", "Error parsing snapshot: " + e.getMessage());
+            Gdx.app.error("Network", "Błąd parsowania snapshotu: " + message);
         }
     }
 
@@ -1399,18 +1408,18 @@ public class Main extends ApplicationAdapter {
         for (RemotePlayerState state : remotePlayers.values()) {
             if (state.dead) continue;
 
-            // Płynne przejście do pozycji z serwera (Liniowa interpolacja)
-            float lerpFactor = 10f * delta;
-            float oldX = state.displayX;
-            float oldY = state.displayY;
+            // Prędkość wygładzania ruchu
+            float lerp = 15f * delta;
 
-            state.displayX += (state.targetX - state.displayX) * lerpFactor;
-            state.displayY += (state.targetY - state.displayY) * lerpFactor;
-            state.displayRotation += (state.targetRotation - state.displayRotation) * lerpFactor;
+            state.displayX += (state.targetX - state.displayX) * lerp;
+            state.displayY += (state.targetY - state.displayY) * lerp;
 
-            // Sprawdzanie czy się rusza dla animacji
-            state.isMoving = Math.abs(state.displayX - oldX) > 0.1f || Math.abs(state.displayY - oldY) > 0.1f;
+            // Wyliczanie obrotu (kąty wymagają MathUtils.lerpAngle, ale proste lerp też zadziała)
+            state.displayRotation += (state.targetRotation - state.displayRotation) * lerp;
+
             state.stateTime += delta;
+            // Sprawdzenie ruchu dla animacji
+            state.isMoving = Math.abs(state.targetX - state.displayX) > 0.5f;
         }
     }
 
