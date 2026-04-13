@@ -201,16 +201,16 @@ public class ShopUI {
                 }
                 break;
             case "GUN":
-                player.equipWeapon(new Gun(game));
-                player.weapon.damage += player.dmg;
+                player.equipWeapon(game.defaultGun);
+                player.weapon.damage = game.defaultGun.damage + player.dmg;
                 break;
             case "SHOTGUN":
-                player.equipWeapon(new Shotgun(game));
-                player.weapon.damage += player.dmg;
+                player.equipWeapon(game.shotgun);
+                player.weapon.damage = game.shotgun.damage + player.dmg;
                 break;
             case "UZI":
-                player.equipWeapon(new Uzi(game));
-                player.weapon.damage += player.dmg;
+                player.equipWeapon(game.uzi);
+                player.weapon.damage = game.uzi.damage + player.dmg;
                 break;
             case "WINGED_BOOTS":
                 player.speed += BOOT_BOOST;

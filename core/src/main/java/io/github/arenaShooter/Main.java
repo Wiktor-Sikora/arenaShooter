@@ -104,6 +104,10 @@ public class Main extends ApplicationAdapter {
     public Array<Enemy> enemies;
     public Array<Bullet> bullets;
 
+    public Gun defaultGun;
+    public Shotgun shotgun;
+    public Uzi uzi;
+
     public class HighScores {
         public int goldEarned;
         public int enemiesKilled;
@@ -281,6 +285,10 @@ public class Main extends ApplicationAdapter {
         } catch (NoSuchFieldException e) {
             Gdx.app.error("Reflection", "Cannot access player fields", e);
         }
+
+        defaultGun = new Gun(this);
+        shotgun = new Shotgun(this);
+        uzi = new Uzi(this);
 
         playerHud = new PlayerHud(this);
         shopUI = new ShopUI(this);
