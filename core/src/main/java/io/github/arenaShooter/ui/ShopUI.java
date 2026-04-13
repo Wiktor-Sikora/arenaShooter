@@ -89,7 +89,7 @@ public class ShopUI {
         return damageTaken;
     }
 
-    private static class ShopItem {
+    public static class ShopItem {
         String name;
         String desc;
         int price;
@@ -98,7 +98,7 @@ public class ShopUI {
         boolean oncePerWave;
         boolean boughtThisWave;
 
-        ShopItem(String name, String desc, int price, Texture texture, boolean oncePerWave) {
+        public ShopItem(String name, String desc, int price, Texture texture, boolean oncePerWave) {
             this.name = name;
             this.desc = desc;
             this.price = price;
@@ -107,6 +107,9 @@ public class ShopUI {
             this.oncePerWave = oncePerWave;
             this.boughtThisWave = false;
         }
+
+        public String getName() { return name; }
+        public int getPrice() { return price; }
     }
 
     public void buyItem(int index) {
@@ -182,6 +185,11 @@ public class ShopUI {
 
     public void updateGold(int gold){
 
+    }
+
+    public ShopItem getCurrentItem(int index) {
+        if (index >= 0 && index < currentItems.size()) return currentItems.get(index);
+        return null;
     }
 
     public void applyPurchase(String itemId, Main game) {

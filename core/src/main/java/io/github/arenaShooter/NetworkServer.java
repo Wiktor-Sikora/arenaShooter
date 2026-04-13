@@ -262,6 +262,15 @@ public class NetworkServer implements Runnable {
             }
         }
 
+        boolean anyDead = false;
+        for (ClientState state : clientStates.values()) {
+            if (state.hp <= 0) anyDead = true;
+        }
+        if (anyDead && gameState == GameState.PLAYING) {
+            gameState = GameState.DEAD;
+            broadcast("GAME_OVER");
+        }
+
         clampPlayersToMap();
     }
 
@@ -488,16 +497,12 @@ public class NetworkServer implements Runnable {
             ClientState state = clientStates.get(clientId);
             if (state != null) {
                 switch (itemId) {
-                    case "WINGED_BOOTS":
-                        state.speedBonus += ShopUI.BOOT_BOOST;
-                        break;
-                    case "LIFE_FRUIT":
-                        state.maxHpBonus += ShopUI.LIFE_FRUIT_BOOST;
-                        state.hp = 100 + state.maxHpBonus; // pełne leczenie
-                        break;
-                    case "STRENGTH_CHIP":
-                        state.damageBonus += ShopUI.CHIP_BOOST;
-                        break;
+                    case "GUN": state.weaponName = "Gun"; break;
+                    case "SHOTGUN": state.weaponName = "Shotgun"; break;
+                    case "UZI": state.weaponName = "Uzi"; break;
+                    case "WINGED_BOOTS": state.speedBonus += ShopUI.BOOT_BOOST; break;
+                    case "LIFE_FRUIT": state.maxHpBonus += ShopUI.LIFE_FRUIT_BOOST; state.hp = 100 + state.maxHpBonus; break;
+                    case "STRENGTH_CHIP": state.damageBonus += ShopUI.CHIP_BOOST; break;
                 }
             }
 

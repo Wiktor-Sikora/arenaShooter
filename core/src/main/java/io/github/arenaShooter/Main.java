@@ -357,10 +357,20 @@ public class Main extends ApplicationAdapter {
                 return;
             }
 
-            if (Gdx.input.isKeyJustPressed(Input.Keys.NUM_1)) shopUI.buyItem(0);
-            if (Gdx.input.isKeyJustPressed(Input.Keys.NUM_2)) shopUI.buyItem(1);
-            if (Gdx.input.isKeyJustPressed(Input.Keys.NUM_3)) shopUI.buyItem(2);
-            if (Gdx.input.isKeyJustPressed(Input.Keys.NUM_4)) shopUI.buyItem(3);
+            for (int i = 0; i < 4; i++) {
+                int keyCode = Input.Keys.NUM_1 + i;
+                if (Gdx.input.isKeyJustPressed(keyCode)) {
+                    if (networkConnected) {
+                        ShopUI.ShopItem item = shopUI.getCurrentItem(i);
+                        if (item != null) {
+                            sendNetworkBuy(item.getPrice(), item.getName());
+                        }
+                    } else {
+                        shopUI.buyItem(i);
+                    }
+                    break;
+                }
+            }
         }
     }
 
@@ -1275,7 +1285,7 @@ public class Main extends ApplicationAdapter {
                     globalGold = newGold;
                     if (shopUI != null) {
                         shopUI.updateGold(globalGold);
-                        shopUI.applyPurchase(itemId, this);   // <-- DODAJ
+                        shopUI.applyPurchase(itemId, Main.this);
                     }
                 });
             }
