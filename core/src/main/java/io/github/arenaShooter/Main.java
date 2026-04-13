@@ -1477,10 +1477,10 @@ public class Main extends ApplicationAdapter {
 
             batch.draw(currentFrame,
                 state.displayX, state.displayY,
-                16f, 32f,
-                32f, 64f,
+                16f, 32f, // Origin
+                32f, 64f, // Wymiary
                 1f, 1f,
-                state.displayRotation);
+                0f);
 
             // RYSOWANIE BRONI
             if (state.weaponName != null && remoteWeaponTextures.containsKey(state.weaponName)) {
@@ -1512,10 +1512,10 @@ public class Main extends ApplicationAdapter {
             float barWidth = 32f;
             float healthPercent = state.hp / 100f; // Zakładając max hp = 100
 
-            shapeRenderer.setColor(Color.RED);
-            shapeRenderer.rect(state.displayX, state.displayY + 70, barWidth, 5);
+            shapeRenderer.setColor(Color.GRAY);
+            shapeRenderer.rect(state.displayX, state.displayY - 10, barWidth, 5);
             shapeRenderer.setColor(Color.GREEN);
-            shapeRenderer.rect(state.displayX, state.displayY + 70, barWidth * healthPercent, 5);
+            shapeRenderer.rect(state.displayX, state.displayY - 10, barWidth * healthPercent, 5);
         }
         shapeRenderer.end();
     }
