@@ -74,6 +74,8 @@ public class Main extends ApplicationAdapter {
 
     public ShapeRenderer shapeRenderer;
 
+    private com.badlogic.gdx.graphics.g2d.Animation<TextureRegion> walkAnimation;
+
     private final float MAP_TEXTURE_SIZE = 1500;
     public final float PLAYABLE_AREA_SIZE = 1400;
     public final float AREA_OFFSET = (MAP_TEXTURE_SIZE - PLAYABLE_AREA_SIZE) / 2f;
@@ -159,6 +161,9 @@ public class Main extends ApplicationAdapter {
         int gold = 0;
         int goldEarned = 0;
         int enemiesKilled = 0;
+
+        float stateTime = 0f;
+        boolean isMoving = false;
     }
 
     private final Map<Integer, RemotePlayerState> remotePlayers = new ConcurrentHashMap<>();
@@ -189,11 +194,15 @@ public class Main extends ApplicationAdapter {
         shapeRenderer = new ShapeRenderer();
 
         map = new Texture("map.png");
-
         networkPlayerBulletTexture = new Texture("bullet.png");
         networkEnemyBulletTexture = new Texture("bone.png");
+
         remotePlayerAtlas = new TextureAtlas(Gdx.files.internal("player.atlas"));
         remotePlayerFrame = remotePlayerAtlas.findRegion("player_side_0");
+
+        walkAnimation = new com.badlogic.gdx.graphics.g2d.Animation<>(0.1f,
+            remotePlayerAtlas.findRegions("player_side"),
+            com.badlogic.gdx.graphics.g2d.Animation.PlayMode.LOOP);
 
         remoteWeaponTextures.put("Gun", new Texture("gun.png"));
         remoteWeaponDimensions.put("Gun", new float[]{20f, 17f});
@@ -1354,250 +1363,88 @@ public class Main extends ApplicationAdapter {
     }
 
     private void handleSnapshotMessage(String message) {
-        if (networkClient == null || gameState != GameState.PLAYING) {
-            return;
-        }
-
+        // Rozbijamy wiadomość: "SNAPSHOT id x y rotation hp ..."
         String[] parts = message.split("\\s+");
-        if (parts.length < 13) {
-            return;
-        }
+        if (parts.length < 5) return;
 
-        int index = 1;
-        int selfId;
-        float selfX;
-        float selfY;
-        float selfHp;
-        float selfRotation;
-        int selfGold;
-        int selfGoldEarned;
-        int selfKills;
         try {
-            index++; // server tick, currently unused
-            selfId = Integer.parseInt(parts[index++]);
-            selfX = Float.parseFloat(parts[index++]);
-            selfY = Float.parseFloat(parts[index++]);
-            selfHp = Float.parseFloat(parts[index++]);
-            selfRotation = Float.parseFloat(parts[index++]);
-            index++; // selfWeapon (unused for local player)
-            selfGold = Integer.parseInt(parts[index++]);
-            selfGoldEarned = Integer.parseInt(parts[index++]);
-            selfKills = Integer.parseInt(parts[index++]);
-            index++; // lastAckTick
-        } catch (NumberFormatException ignored) {
-            return;
+            int id = Integer.parseInt(parts[1]);
+
+            // KLUCZOWE: Jeśli to nasze ID, ignorujemy, żeby nas nie "teleportowało"
+            if (networkClient != null && id == networkClient.getPlayerId()) return;
+
+            float netX = Float.parseFloat(parts[2]);
+            float netY = Float.parseFloat(parts[3]);
+            float netRot = Float.parseFloat(parts[4]);
+
+            RemotePlayerState state = remotePlayers.get(id);
+            if (state == null) {
+                state = new RemotePlayerState();
+                // Przy pierwszym pojawieniu się ustawiamy od razu display i target
+                state.displayX = netX;
+                state.displayY = netY;
+                state.targetX = netX;
+                state.targetY = netY;
+                state.displayRotation = netRot;
+                state.targetRotation = netRot;
+                remotePlayers.put(id, state);
+            } else {
+                // Przy kolejnych pakietach zmieniamy TYLKO cel (target)
+                state.targetX = netX;
+                state.targetY = netY;
+                state.targetRotation = netRot;
+            }
+        } catch (NumberFormatException e) {
+            Gdx.app.error("Network", "Błąd parsowania: " + message);
         }
-
-        int playersCount;
-        try {
-            playersCount = Integer.parseInt(parts[index++]);
-        } catch (NumberFormatException ignored) {
-            return;
-        }
-
-        List<RemotePlayerSnapshot> parsed = new ArrayList<>();
-        for (int i = 0; i < playersCount && index < parts.length; i++) {
-            String[] p = parts[index++].split(",", 9);
-            if (p.length < 9) {
-                continue;
-            }
-            try {
-                RemotePlayerSnapshot snapshot = new RemotePlayerSnapshot();
-//                snapshot.id = Integer.parseInt(p[0]);
-//                snapshot.x = Float.parseFloat(p[1]);
-//                snapshot.y = Float.parseFloat(p[2]);
-//                snapshot.hp = Float.parseFloat(p[3]);
-//                snapshot.rotation = Float.parseFloat(p[4]);
-//                snapshot.weaponName = p[5];
-//                parsed.add(snapshot);
-
-                snapshot.id = Integer.parseInt(parts[1]);
-                snapshot.x = Float.parseFloat(parts[2]);
-                snapshot.y = Float.parseFloat(parts[3]);
-                snapshot.rotation = Float.parseFloat(parts[4]);
-                snapshot.hp = Float.parseFloat(parts[5]);
-
-                if (networkClient != null && snapshot.id == networkClient.getPlayerId()) {
-                    return;
-                }
-
-                RemotePlayerState state = remotePlayers.get(snapshot.id);
-                if (state == null) {
-                    state = new RemotePlayerState();
-                    state.displayX = snapshot.x;
-                    state.displayY = snapshot.y;
-                    state.targetX = snapshot.x;
-                    state.targetY = snapshot.y;
-                    state.displayRotation = snapshot.rotation;
-                    state.targetRotation = snapshot.rotation;
-                    remotePlayers.put(snapshot.id, state);
-                } else {
-                    state.targetX = snapshot.x;
-                    state.targetY = snapshot.y;
-                    state.targetRotation = snapshot.rotation;
-                    state.hp = snapshot.hp;
-                }
-            } catch (NumberFormatException ignored) {
-                return;
-            }
-        }
-
-        Gdx.app.postRunnable(() -> {
-            if (menu.startMode == Menu.NetworkMode.CLIENT) {
-                player.hitbox.x = selfX;
-                player.hitbox.y = selfY;
-                player.health = selfHp;
-                player.rotation = selfRotation;
-                player.gold = selfGold;
-                player.goldEarned = selfGoldEarned;
-                player.enemiesKilled = selfKills;
-            }
-
-            Set<Integer> activeIds = new HashSet<>();
-            for (RemotePlayerSnapshot snapshot : parsed) {
-                if (snapshot.id != selfId) {
-                    activeIds.add(snapshot.id);
-                    RemotePlayerState state = remotePlayers.get(snapshot.id);
-                    if (state == null) {
-                        state = new RemotePlayerState();
-                        state.displayX = snapshot.x;
-                        state.displayY = snapshot.y;
-                        state.displayRotation = snapshot.rotation;
-                        state.targetX = snapshot.x;
-                        state.targetY = snapshot.y;
-                        state.targetRotation = snapshot.rotation;
-                        state.hp = snapshot.hp;
-                        remotePlayers.put(snapshot.id, state);
-                    } else {
-                        state.targetX = snapshot.x;
-                        state.targetY = snapshot.y;
-                        state.targetRotation = snapshot.rotation;
-                        state.hp = snapshot.hp;
-                    }
-                    state.hp = snapshot.hp;
-                    state.weaponName = snapshot.weaponName;
-                    state.dead = snapshot.hp <= 0;
-                }
-            }
-
-            remotePlayers.keySet().removeIf(id -> !activeIds.contains(id));
-        });
     }
 
     private void updateRemotePlayers(float delta) {
-//        float lerpFactor = 0.2f;
         for (RemotePlayerState state : remotePlayers.values()) {
             if (state.dead) continue;
-            float lerpAlpha = 15f * delta;
 
-            state.displayX = MathUtils.lerp(state.displayX, state.targetX, lerpAlpha);
-            state.displayY = MathUtils.lerp(state.displayY, state.targetY, lerpAlpha);
+            float oldX = state.displayX;
+            float oldY = state.displayY;
 
-            state.displayRotation = MathUtils.lerpAngleDeg(state.displayRotation, state.targetRotation, lerpAlpha);
+            // Wygładzanie ruchu
+            state.displayX = MathUtils.lerp(state.displayX, state.targetX, 15f * delta);
+            state.displayY = MathUtils.lerp(state.displayY, state.targetY, 15f * delta);
+            state.displayRotation = MathUtils.lerpAngleDeg(state.displayRotation, state.targetRotation, 15f * delta);
+
+            // Obliczanie czy postać "idzie"
+            if (Vector2.dst(oldX, oldY, state.displayX, state.displayY) > 0.1f) {
+                state.isMoving = true;
+                state.stateTime += delta;
+            } else {
+                state.isMoving = false;
+                state.stateTime = 0;
+            }
         }
     }
 
     private void renderRemotePlayers(SpriteBatch batch) {
-        if (remotePlayerAtlas == null) {
-            return;
-        }
         for (RemotePlayerState state : remotePlayers.values()) {
             if (state.dead) continue;
-            float drawX = state.displayX - 16f;
-            float drawY = state.displayY;
 
-            TextureRegion frame;
-            boolean facingLeft = false;
-
-            float angle = state.displayRotation % 360;
-            if (angle < 0) angle += 360;
-
-            if (angle >= 45 && angle < 135) {
-                frame = remotePlayerAtlas.findRegion("player_back_0");
-            } else if (angle >= 135 && angle < 225) {
-                frame = remotePlayerAtlas.findRegion("player_side_0");
-                facingLeft = true;
-            } else if (angle >= 225 && angle < 315) {
-                frame = remotePlayerAtlas.findRegion("player_front_0");
+            TextureRegion currentFrame;
+            // Sprawdzamy czy animacja istnieje i czy gracz się rusza
+            if (state.isMoving && walkAnimation != null) {
+                currentFrame = walkAnimation.getKeyFrame(state.stateTime);
             } else {
-                frame = remotePlayerAtlas.findRegion("player_side_0");
+                currentFrame = remotePlayerFrame;
             }
 
-            if (facingLeft) {
-                batch.draw(frame, drawX + 64f, drawY, -64f, 64f);
-            } else {
-                batch.draw(frame, drawX, drawY, 64f, 64f);
-            }
+            batch.draw(currentFrame,
+                state.displayX, state.displayY,
+                16f, 16f, 32f, 64f, 1f, 1f,
+                state.displayRotation);
 
-            float playerCenterX = state.displayX + 16f;
-            float playerCenterY = state.displayY + 32f;
-
-            float weaponRotation = 0f;
-            boolean weaponFlipped = false;
-            if (Math.abs(Math.cos(Math.toRadians(state.displayRotation))) > Math.abs(Math.sin(Math.toRadians(state.displayRotation)))) {
-                if (Math.cos(Math.toRadians(state.displayRotation)) < 0) {
-                    weaponFlipped = true;
-                }
-            } else {
-                if (Math.sin(Math.toRadians(state.displayRotation)) > 0) {
-                    weaponRotation = 90f;
-                } else {
-                    weaponRotation = -90f;
-                }
-            }
-
-            Texture weaponTex = remoteWeaponTextures.get(state.weaponName);
-            float[] dims = remoteWeaponDimensions.get(state.weaponName);
-            if (dims == null) {
-                dims = new float[]{20f, 17f};
-            }
-            float texWidth = dims[0];
-            float texHeight = dims[1];
-
-            float offsetX = 0, offsetY = 0;
-            if (weaponRotation == 0) {
-                if (weaponFlipped) {
-                    offsetX = -28;
-                    offsetY = -5;
-                } else {
-                    offsetX = 7;
-                    offsetY = -5;
-                }
-            } else if (weaponRotation == 90) {
-                offsetX = -10;
-                offsetY = 25;
-            } else if (weaponRotation == -90) {
-                offsetX = 0;
-                offsetY = -15;
-            }
-
-            if (weaponTex != null) {
-                if (weaponRotation == 90 || weaponRotation == -90) {
-                    batch.draw(
-                        weaponTex,
-                        playerCenterX + offsetX,
-                        playerCenterY + offsetY,
-                        texWidth / 2, texHeight / 2,
-                        texWidth, texHeight,
-                        1f, 1f,
-                        weaponRotation,
-                        0, 0,
-                        weaponTex.getWidth(), weaponTex.getHeight(),
-                        false, false
-                    );
-                } else {
-                    batch.draw(
-                        weaponTex,
-                        playerCenterX + offsetX,
-                        playerCenterY + offsetY,
-                        texWidth / 2, texHeight / 2,
-                        texWidth, texHeight,
-                        1f, 1f,
-                        weaponRotation,
-                        0, 0,
-                        weaponTex.getWidth(), weaponTex.getHeight(),
-                        weaponFlipped, false
-                    );
+            // Rysowanie broni
+            if (state.weaponName != null && remoteWeaponTextures.containsKey(state.weaponName)) {
+                Texture weaponTex = remoteWeaponTextures.get(state.weaponName);
+                float[] dims = remoteWeaponDimensions.get(state.weaponName);
+                if (weaponTex != null && dims != null) {
+                    batch.draw(weaponTex, state.displayX + 8f, state.displayY + 24f, 8f, 8f, dims[0], dims[1], 1f, 1f);
                 }
             }
         }
