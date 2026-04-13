@@ -377,7 +377,9 @@ public class Main extends ApplicationAdapter {
         }
 
         if (gameState == GameState.PLAYING) {
-            player.update(delta);
+            if (menu.startMode != Menu.NetworkMode.CLIENT) {
+                player.update(delta);
+            }
 
             if (player.health <= 0) {
                 player.healthBar.dispose();
