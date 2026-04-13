@@ -1414,7 +1414,10 @@ public class Main extends ApplicationAdapter {
                         player.hitbox.setPosition(myX, myY);
                     }
                 }
-                player.health = myHp;
+
+                if (menu.startMode == Menu.NetworkMode.CLIENT) {
+                    player.health = myHp;
+                }
             }
 
             int playerCount = Integer.parseInt(parts[12]);
