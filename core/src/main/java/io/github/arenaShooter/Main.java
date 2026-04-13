@@ -5,16 +5,12 @@ import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.Input;
 import com.badlogic.gdx.InputAdapter;
 import com.badlogic.gdx.InputMultiplexer;
-import com.badlogic.gdx.graphics.g2d.BitmapFont;
-import com.badlogic.gdx.graphics.g2d.GlyphLayout;
+import com.badlogic.gdx.graphics.g2d.*;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
 import com.badlogic.gdx.scenes.scene2d.Stage;
 import com.badlogic.gdx.utils.Array;
 import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.Texture;
-import com.badlogic.gdx.graphics.g2d.SpriteBatch;
-import com.badlogic.gdx.graphics.g2d.TextureAtlas;
-import com.badlogic.gdx.graphics.g2d.TextureRegion;
 import com.badlogic.gdx.math.Rectangle;
 import com.badlogic.gdx.math.Vector2;
 import com.badlogic.gdx.math.MathUtils;
@@ -113,6 +109,9 @@ public class Main extends ApplicationAdapter {
     private Texture networkPlayerBulletTexture;
     private Texture networkEnemyBulletTexture;
     private TextureAtlas remotePlayerAtlas;
+    private Animation<TextureRegion> sideWalkAnimation;
+    private Animation<TextureRegion> frontWalkAnimation;
+    private Animation<TextureRegion> backWalkAnimation;
     private TextureRegion remotePlayerFrame;
     private Map<String, Texture> remoteWeaponTextures = new HashMap<>();
     private Map<String, float[]> remoteWeaponDimensions = new HashMap<>();
@@ -200,9 +199,26 @@ public class Main extends ApplicationAdapter {
         remotePlayerAtlas = new TextureAtlas(Gdx.files.internal("player.atlas"));
         remotePlayerFrame = remotePlayerAtlas.findRegion("player_side_0");
 
-        walkAnimation = new com.badlogic.gdx.graphics.g2d.Animation<>(0.1f,
-            remotePlayerAtlas.findRegions("player_side"),
-            com.badlogic.gdx.graphics.g2d.Animation.PlayMode.LOOP);
+// Animacja BOKI (player_side_0, 1, 2, 3, 4)
+        Array<TextureRegion> sideWalkFrames = new Array<>();
+        for (int i = 0; i < 5; i++) {
+            sideWalkFrames.add(remotePlayerAtlas.findRegion("player_side_" + i));
+        }
+        sideWalkAnimation = new Animation<>(0.2f, sideWalkFrames, Animation.PlayMode.LOOP);
+
+// Animacja PRZÓD (player_front_0, 1, 2)
+        Array<TextureRegion> frontWalkFrames = new Array<>();
+        for (int i = 0; i < 3; i++) {
+            frontWalkFrames.add(remotePlayerAtlas.findRegion("player_front_" + i));
+        }
+        frontWalkAnimation = new Animation<>(0.3f, frontWalkFrames, Animation.PlayMode.LOOP);
+
+// Animacja TYŁ (player_back_0, 1, 2)
+        Array<TextureRegion> backWalkFrames = new Array<>();
+        for (int i = 0; i < 3; i++) {
+            backWalkFrames.add(remotePlayerAtlas.findRegion("player_back_" + i));
+        }
+        backWalkAnimation = new Animation<>(0.3f, backWalkFrames, Animation.PlayMode.LOOP);
 
         remoteWeaponTextures.put("Gun", new Texture("gun.png"));
         remoteWeaponDimensions.put("Gun", new float[]{20f, 17f});
@@ -1463,43 +1479,54 @@ public class Main extends ApplicationAdapter {
         for (RemotePlayerState state : remotePlayers.values()) {
             if (state.dead) continue;
 
-            TextureRegion currentFrame = null;
+            // 1. Logika wyboru animacji (Skopiowana z Player.java)
+            float angle = state.displayRotation;
+            boolean remoteFacingLeft = false;
+            TextureRegion frame;
 
-            // Sprawdzamy czy animacja istnieje ORAZ czy ma klatki (getKeyFrames().size > 0)
-            if (state.isMoving && walkAnimation != null && walkAnimation.getKeyFrames().length > 0) {
-                currentFrame = walkAnimation.getKeyFrame(state.stateTime);
+            if (angle >= 45 && angle < 135) {
+                frame = backWalkAnimation.getKeyFrame(state.stateTime, state.isMoving);
+            } else if (angle >= 135 && angle < 225) {
+                frame = sideWalkAnimation.getKeyFrame(state.stateTime, state.isMoving);
+                remoteFacingLeft = true;
+            } else if (angle >= 225 && angle < 315) {
+                frame = frontWalkAnimation.getKeyFrame(state.stateTime, state.isMoving);
             } else {
-                currentFrame = remotePlayerFrame;
+                frame = sideWalkAnimation.getKeyFrame(state.stateTime, state.isMoving);
             }
 
-            // Jeśli mimo wszystko currentFrame jest null (np. atlas nie wczytał regionu)
-            if (currentFrame == null) continue;
+            // 2. Rysowanie broni ZA plecami (jeśli celuje w górę)
+            boolean weaponBehind = (angle > 45 && angle < 135);
+            if (weaponBehind) drawRemoteWeapon(batch, state);
 
-            batch.draw(currentFrame,
-                state.displayX, state.displayY,
-                16f, 32f, // Origin
-                32f, 64f, // Wymiary
-                1f, 1f,
-                0f);
+            // 3. Rysowanie postaci (PIONOWO, bez obrotu, z ewentualnym flipem)
+            float drawX = state.displayX;
+            float drawY = state.displayY;
+            float tw = 64f; // textureWidth z Player
+            float th = 64f; // textureHeight z Player
 
-            // RYSOWANIE BRONI
-            if (state.weaponName != null && remoteWeaponTextures.containsKey(state.weaponName)) {
-                Texture weaponTex = remoteWeaponTextures.get(state.weaponName);
-                float[] dims = remoteWeaponDimensions.get(state.weaponName);
-
-                if (weaponTex != null && dims != null) {
-                    // Musimy użyć pełnej wersji batch.draw, aby rotacja działała
-                    batch.draw(weaponTex,
-                        state.displayX + 8f, state.displayY + 24f, // x, y
-                        8f, 8f,                                   // originX, originY (środek obrotu broni)
-                        dims[0], dims[1],                         // width, height
-                        1f, 1f,                                   // scaleX, scaleY
-                        state.displayRotation,                    // rotation
-                        0, 0,                                     // srcX, srcY
-                        weaponTex.getWidth(), weaponTex.getHeight(), // srcWidth, srcHeight
-                        false, false);                            // flipX, flipY
-                }
+            if (remoteFacingLeft) {
+                // Rysujemy odbite lustrzanie (negatywna szerokość)
+                batch.draw(frame, drawX + tw, drawY, -tw, th);
+            } else {
+                batch.draw(frame, drawX, drawY, tw, th);
             }
+
+            // 4. Rysowanie broni PRZED postacią
+            if (!weaponBehind) drawRemoteWeapon(batch, state);
+        }
+    }
+
+    // Pomocnicza metoda dla broni
+    private void drawRemoteWeapon(SpriteBatch batch, RemotePlayerState state) {
+        if (state.weaponName != null && remoteWeaponTextures.containsKey(state.weaponName)) {
+            Texture tex = remoteWeaponTextures.get(state.weaponName);
+            float[] dims = remoteWeaponDimensions.get(state.weaponName);
+            // Pozycjonowanie broni względem środka postaci
+            batch.draw(tex,
+                state.displayX + 16f, state.displayY + 24f,
+                8f, 8f, dims[0], dims[1], 1f, 1f,
+                state.displayRotation, 0, 0, tex.getWidth(), tex.getHeight(), false, false);
         }
     }
 
@@ -1509,13 +1536,14 @@ public class Main extends ApplicationAdapter {
         for (RemotePlayerState state : remotePlayers.values()) {
             if (state.dead) continue;
 
-            float barWidth = 32f;
-            float healthPercent = state.hp / 100f; // Zakładając max hp = 100
+            // Rysujemy pod nogami (displayY - 10)
+            float barWidth = 40f;
+            float healthPercent = state.hp / 100f;
 
-            shapeRenderer.setColor(Color.GRAY);
-            shapeRenderer.rect(state.displayX, state.displayY - 10, barWidth, 5);
+            shapeRenderer.setColor(Color.RED);
+            shapeRenderer.rect(state.displayX + 12f, state.displayY - 10f, barWidth, 5f);
             shapeRenderer.setColor(Color.GREEN);
-            shapeRenderer.rect(state.displayX, state.displayY - 10, barWidth * healthPercent, 5);
+            shapeRenderer.rect(state.displayX + 12f, state.displayY - 10f, barWidth * healthPercent, 5f);
         }
         shapeRenderer.end();
     }
