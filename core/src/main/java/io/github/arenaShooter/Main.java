@@ -1243,13 +1243,13 @@ public class Main extends ApplicationAdapter {
 
     private void handleGoldMessage(String message) {
         String[] parts = message.split("\\s+");
-        if (parts.length < 3) return; // format "GOLD <nowe_złoto>"
+        if (parts.length < 2) return; // format "GOLD <nowe_złoto>"
         try {
-            int newGold = Integer.parseInt(parts[1]);
+            int newGold = Integer.parseInt(parts[1]); // parts[1], nie parts[2]!
             Gdx.app.postRunnable(() -> {
                 globalGold = newGold;
-                // Aktualizacja HUD (jeśli shopUI używa globalGold)
                 if (shopUI != null) shopUI.updateGold(globalGold);
+                if (playerHud != null) playerHud.updateGold(globalGold);
             });
         } catch (NumberFormatException ignored) {}
     }
@@ -1508,29 +1508,33 @@ public class Main extends ApplicationAdapter {
                 if (index >= parts.length) break;
 
                 String[] pData = parts[index].split(",");
-                if (pData.length < 9) continue;
-
+                if (pData.length < 11) continue; // 11 pól: id,x,y,hp,rot,weapon,goldEarned,kills,speed,maxHp,damage
                 int remoteId = Integer.parseInt(pData[0]);
                 float rx = Float.parseFloat(pData[1]);
                 float ry = Float.parseFloat(pData[2]);
                 float rhp = Float.parseFloat(pData[3]);
                 float rrot = Float.parseFloat(pData[4]);
                 String rweapon = pData[5];
-                int rSpeedBonus = Integer.parseInt(pData[6]);
-                int rMaxHpBonus = Integer.parseInt(pData[7]);
-                int rDamageBonus = Integer.parseInt(pData[8]);
+                int rGoldEarned = Integer.parseInt(pData[6]);
+                int rEnemiesKilled = Integer.parseInt(pData[7]);
+                int rSpeedBonus = Integer.parseInt(pData[8]);
+                int rMaxHpBonus = Integer.parseInt(pData[9]);
+                int rDamageBonus = Integer.parseInt(pData[10]);
 
                 if (networkClient != null && remoteId == networkClient.getPlayerId()) {
                     playerSpeedBonus = rSpeedBonus;
                     playerMaxHpBonus = rMaxHpBonus;
                     playerDamageBonus = rDamageBonus;
-                    // Zaktualizuj statystyki gracza
                     player.speed = 170f + playerSpeedBonus;
                     player.maxHealth = 100 + playerMaxHpBonus;
                     player.dmg = playerDamageBonus;
                     if (player.weapon != null) {
                         player.weapon.damage = player.weapon.damage + playerDamageBonus;
                     }
+                    // Opcjonalnie: zaktualizuj statystyki wyświetlane w HUD
+                    player.goldEarned = rGoldEarned;
+                    player.enemiesKilled = rEnemiesKilled;
+                    continue; // pomiń tworzenie RemotePlayerState dla siebie
                 }
 
                 RemotePlayerState state = remotePlayers.get(remoteId);
