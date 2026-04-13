@@ -1379,7 +1379,11 @@ public class Main extends ApplicationAdapter {
             if (networkClient != null && myId == networkClient.getPlayerId()) {
                 // Serwer wymusza pozycję tylko dla klienta (Host porusza się sam)
                 if (menu.startMode == Menu.NetworkMode.CLIENT) {
-                    player.hitbox.setPosition(myX, myY);
+                    float dist = Vector2.dst(player.hitbox.x, player.hitbox.y, myX, myY);
+
+                    if (dist > 20f) {
+                        player.hitbox.setPosition(myX, myY);
+                    }
                 }
                 player.health = myHp;
             }
@@ -1447,12 +1451,11 @@ public class Main extends ApplicationAdapter {
             state.displayX += (state.targetX - state.displayX) * lerp;
             state.displayY += (state.targetY - state.displayY) * lerp;
 
-            // Wyliczanie obrotu (kąty wymagają MathUtils.lerpAngle, ale proste lerp też zadziała)
-            state.displayRotation += (state.targetRotation - state.displayRotation) * lerp;
+            state.displayRotation = MathUtils.lerpAngleDeg(state.displayRotation, state.targetRotation, lerp);
 
             state.stateTime += delta;
-            // Sprawdzenie ruchu dla animacji
-            state.isMoving = Math.abs(state.targetX - state.displayX) > 0.5f;
+            state.isMoving = Math.abs(state.targetX - state.displayX) > 0.5f ||
+                Math.abs(state.targetY - state.displayY) > 0.5f;
         }
     }
 
