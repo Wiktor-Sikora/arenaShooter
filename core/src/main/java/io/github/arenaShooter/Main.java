@@ -1473,7 +1473,6 @@ public class Main extends ApplicationAdapter {
 
     private void handleSnapshotMessage(String message) {
         String[] parts = message.split("\\s+");
-
         if (parts.length < 13) return;
 
         try {
@@ -1484,7 +1483,6 @@ public class Main extends ApplicationAdapter {
 
             if (networkClient != null && myId == networkClient.getPlayerId()) {
                 if (menu.startMode == Menu.NetworkMode.CLIENT) {
-
                     clientPrevX = player.hitbox.x;
                     clientPrevY = player.hitbox.y;
                     clientTargetX = myX;
@@ -1493,14 +1491,12 @@ public class Main extends ApplicationAdapter {
                     float dx = myX - clientPrevX;
                     float dy = myY - clientPrevY;
                     clientMoving = (dx * dx + dy * dy) > 0.25f;
-
                     player.health = myHp;
                 }
             }
 
             int playerCount = Integer.parseInt(parts[12]);
             int playerStartIndex = 13;
-
             Set<Integer> currentRemoteIds = new HashSet<>();
 
             for (int i = 0; i < playerCount; i++) {
@@ -1508,8 +1504,11 @@ public class Main extends ApplicationAdapter {
                 if (index >= parts.length) break;
 
                 String[] pData = parts[index].split(",");
-                if (pData.length < 11) continue; // 11 pól: id,x,y,hp,rot,weapon,goldEarned,kills,speed,maxHp,damage
+                if (pData.length < 11) continue; // 11 pól
+
                 int remoteId = Integer.parseInt(pData[0]);
+                currentRemoteIds.add(remoteId); // <--- KLUCZOWE: DODAJEMY ID
+
                 float rx = Float.parseFloat(pData[1]);
                 float ry = Float.parseFloat(pData[2]);
                 float rhp = Float.parseFloat(pData[3]);
@@ -1521,6 +1520,7 @@ public class Main extends ApplicationAdapter {
                 int rMaxHpBonus = Integer.parseInt(pData[9]);
                 int rDamageBonus = Integer.parseInt(pData[10]);
 
+                // Jeśli to my – aktualizujemy statystyki i pomijamy tworzenie RemotePlayerState
                 if (networkClient != null && remoteId == networkClient.getPlayerId()) {
                     playerSpeedBonus = rSpeedBonus;
                     playerMaxHpBonus = rMaxHpBonus;
@@ -1531,14 +1531,13 @@ public class Main extends ApplicationAdapter {
                     if (player.weapon != null) {
                         player.weapon.damage = player.weapon.damage + playerDamageBonus;
                     }
-                    // Opcjonalnie: zaktualizuj statystyki wyświetlane w HUD
                     player.goldEarned = rGoldEarned;
                     player.enemiesKilled = rEnemiesKilled;
-                    continue; // pomiń tworzenie RemotePlayerState dla siebie
+                    continue; // nie tworzymy RemotePlayerState dla siebie
                 }
 
+                // Obsługa graczy zdalnych
                 RemotePlayerState state = remotePlayers.get(remoteId);
-
                 if (state == null) {
                     final RemotePlayerState newState = new RemotePlayerState();
                     newState.displayX = rx;
@@ -1548,18 +1547,15 @@ public class Main extends ApplicationAdapter {
                     newState.targetY = ry;
                     newState.isMoving = false;
                     newState.stateTime = 4f;
-
                     Gdx.app.postRunnable(() -> {
                         newState.healthBar = new io.github.arenaShooter.ui.HealthBar(this, 100, 64);
                     });
-
                     remotePlayers.put(remoteId, newState);
                     state = newState;
                 }
 
                 float oldDisplayX = state.displayX;
                 float oldDisplayY = state.displayY;
-
                 state.prevX = oldDisplayX;
                 state.prevY = oldDisplayY;
                 state.targetX = rx;
@@ -1574,24 +1570,23 @@ public class Main extends ApplicationAdapter {
                 float dy = ry - oldDisplayY;
                 boolean wasMoving = state.isMoving;
                 state.isMoving = (dx * dx + dy * dy) > 0.25f;
-
                 if (!state.isMoving && wasMoving) {
                     state.stateTime = 4f;
                 }
             }
 
+            // Usuwanie graczy, którzy nie pojawili się w tym snapshotcie
             for (Integer id : new ArrayList<>(remotePlayers.keySet())) {
                 if (!currentRemoteIds.contains(id)) {
                     RemotePlayerState removed = remotePlayers.remove(id);
                     if (removed != null && removed.healthBar != null) {
-                        // Ponownie: usuwanie ze Stage musi być w wątku renderującym
                         Gdx.app.postRunnable(() -> removed.healthBar.dispose());
                     }
                 }
             }
 
         } catch (Exception e) {
-            Gdx.app.error("Network", "Błąd parsowania snapshotu: " + message);
+            Gdx.app.error("Network", "Błąd parsowania snapshotu: " + message, e);
         }
     }
 
