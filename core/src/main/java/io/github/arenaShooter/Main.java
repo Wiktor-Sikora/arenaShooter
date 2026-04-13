@@ -1534,17 +1534,66 @@ public class Main extends ApplicationAdapter {
         }
     }
 
-    // Pomocnicza metoda dla broni
     private void drawRemoteWeapon(SpriteBatch batch, RemotePlayerState state) {
-        if (state.weaponName != null && remoteWeaponTextures.containsKey(state.weaponName)) {
-            Texture tex = remoteWeaponTextures.get(state.weaponName);
-            float[] dims = remoteWeaponDimensions.get(state.weaponName);
-            // Pozycjonowanie broni względem środka postaci
-            batch.draw(tex,
-                state.displayX + 16f, state.displayY + 24f,
-                8f, 8f, dims[0], dims[1], 1f, 1f,
-                state.displayRotation, 0, 0, tex.getWidth(), tex.getHeight(), false, false);
+        if (state.weaponName == null || !remoteWeaponTextures.containsKey(state.weaponName)) return;
+
+        Texture tex = remoteWeaponTextures.get(state.weaponName);
+        float[] dims = remoteWeaponDimensions.get(state.weaponName);
+        if (tex == null || dims == null) return;
+
+        float textureWidth = dims[0];
+        float textureHeight = dims[1];
+
+        // 1. Logika wyboru kąta (przeskok co 90 stopni) dokładnie jak w Weapon.java
+        float angle = state.displayRotation; // To jest kąt celowania wysłany przez serwer
+        float renderRotation = 0f;
+        boolean flipped = false;
+
+        // Normalizacja kąta do 0-360
+        if (angle < 0) angle += 360;
+
+        // Ustalanie kierunku (tak jak w Weapon.java: Math.abs(direction.x) > Math.abs(direction.y))
+        if ((angle >= 0 && angle <= 45) || (angle > 315 && angle <= 360)) {
+            renderRotation = 0; // Prawo
+            flipped = false;
+        } else if (angle > 135 && angle <= 225) {
+            renderRotation = 0; // Lewo
+            flipped = true;
+        } else if (angle > 45 && angle <= 135) {
+            renderRotation = 90; // Góra
+        } else {
+            renderRotation = -90; // Dół
         }
+
+        // 2. Logika offsetów (przesunięć) z Weapon.java
+        float offsetX = 0, offsetY = 0;
+        float centerX = state.displayX + 32f; // Środek gracza (przy założeniu szerokości 64)
+        float centerY = state.displayY + 32f;
+
+        if (renderRotation == 0) {
+            offsetX = flipped ? -35 : 15;
+            offsetY = 0;
+        } else if (renderRotation == 90) {
+            offsetX = -10;
+            offsetY = 25;
+        } else if (renderRotation == -90) {
+            offsetX = 0;
+            offsetY = -15;
+        }
+
+        // 3. Rysowanie
+        batch.draw(
+            tex,
+            centerX + offsetX,
+            centerY + offsetY,
+            textureWidth / 2, textureHeight / 2,
+            textureWidth, textureHeight,
+            1f, 1f,
+            renderRotation,
+            0, 0,
+            tex.getWidth(), tex.getHeight(),
+            flipped, false
+        );
     }
 
     private void renderRemotePlayerHealthBars() {
