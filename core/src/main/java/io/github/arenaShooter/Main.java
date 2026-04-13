@@ -1544,49 +1544,61 @@ public class Main extends ApplicationAdapter {
         float textureWidth = dims[0];
         float textureHeight = dims[1];
 
-        // 1. Logika wyboru kąta (przeskok co 90 stopni) dokładnie jak w Weapon.java
-        float angle = state.displayRotation; // To jest kąt celowania wysłany przez serwer
+        // 1. Obliczanie kierunku (Logika 4-kierunkowa z Twoich klas Weapon)
+        float angle = state.displayRotation;
+        if (angle < 0) angle += 360;
         float renderRotation = 0f;
         boolean flipped = false;
 
-        // Normalizacja kąta do 0-360
-        if (angle < 0) angle += 360;
-
-        // Ustalanie kierunku (tak jak w Weapon.java: Math.abs(direction.x) > Math.abs(direction.y))
         if ((angle >= 0 && angle <= 45) || (angle > 315 && angle <= 360)) {
-            renderRotation = 0; // Prawo
-            flipped = false;
+            renderRotation = 0; flipped = false; // Prawo
         } else if (angle > 135 && angle <= 225) {
-            renderRotation = 0; // Lewo
-            flipped = true;
+            renderRotation = 0; flipped = true;  // Lewo
         } else if (angle > 45 && angle <= 135) {
             renderRotation = 90; // Góra
         } else {
             renderRotation = -90; // Dół
         }
 
-        // 2. Logika offsetów (przesunięć) z Weapon.java
-        float offsetX = 0, offsetY = 0;
-        float centerX = state.displayX + 32f; // Środek gracza (przy założeniu szerokości 64)
+        // 2. Pobieranie offsetów na podstawie nazwy broni
+        float offsetX = 0;
+        float offsetY = 0;
+
+        // Współrzędne środka postaci (analogicznie do getCenterX/Y)
+        float centerX = state.displayX + 32f;
         float centerY = state.displayY + 32f;
 
-        if (renderRotation == 0) {
-            offsetX = flipped ? -35 : 15;
-            offsetY = 0;
-        } else if (renderRotation == 90) {
+        if (renderRotation == 90) { // GÓRA (Wspólne dla wszystkich)
             offsetX = -10;
             offsetY = 25;
-        } else if (renderRotation == -90) {
+        } else if (renderRotation == -90) { // DÓŁ (Wspólne dla wszystkich)
             offsetX = 0;
             offsetY = -15;
+        } else {
+            // BOKI - Tutaj bronie się różnią
+            switch (state.weaponName) {
+                case "Shotgun":
+                    offsetX = flipped ? -28 : -3;
+                    offsetY = -5;
+                    break;
+                case "Uzi":
+                    offsetX = flipped ? -20 : 0;
+                    offsetY = -5;
+                    break;
+                case "Gun":
+                default:
+                    offsetX = flipped ? -28 : 7;
+                    offsetY = -5;
+                    break;
+            }
         }
 
-        // 3. Rysowanie
+        // 3. Rysowanie finalne
         batch.draw(
             tex,
             centerX + offsetX,
             centerY + offsetY,
-            textureWidth / 2, textureHeight / 2,
+            textureWidth / 2, textureHeight / 2, // Origin w środku tekstury broni
             textureWidth, textureHeight,
             1f, 1f,
             renderRotation,
