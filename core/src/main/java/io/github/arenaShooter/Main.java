@@ -7,6 +7,7 @@ import com.badlogic.gdx.InputAdapter;
 import com.badlogic.gdx.InputMultiplexer;
 import com.badlogic.gdx.graphics.g2d.*;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
+import com.badlogic.gdx.math.Vector3;
 import com.badlogic.gdx.scenes.scene2d.Stage;
 import com.badlogic.gdx.utils.Array;
 import com.badlogic.gdx.graphics.Color;
@@ -77,6 +78,7 @@ public class Main extends ApplicationAdapter {
     private float clientInterpTimer = 0f;
     private boolean clientMoving = false;
 
+    private java.lang.reflect.Field playerCurrentFrameField;
     private java.lang.reflect.Field playerStateTimeField;
 
     private final float MAP_TEXTURE_SIZE = 1500;
@@ -245,6 +247,8 @@ public class Main extends ApplicationAdapter {
         try {
             playerStateTimeField = Player.class.getDeclaredField("stateTime");
             playerStateTimeField.setAccessible(true);
+            playerCurrentFrameField = Player.class.getDeclaredField("currentFrame");
+            playerCurrentFrameField.setAccessible(true);
         } catch (NoSuchFieldException e) {
             Gdx.app.error("Reflection", "Cannot access player fields", e);
         }
@@ -304,7 +308,7 @@ public class Main extends ApplicationAdapter {
 
         if (gameState == GameState.PLAYING) {
             if (menu.startMode == Menu.NetworkMode.CLIENT) {
-                player.handleInput(delta);
+//                player.handleInput(delta);
             }
             sendNetworkInput();
 
@@ -339,18 +343,36 @@ public class Main extends ApplicationAdapter {
             float newX = MathUtils.lerp(clientPrevX, clientTargetX, alpha);
             float newY = MathUtils.lerp(clientPrevY, clientTargetY, alpha);
             player.hitbox.setPosition(newX, newY);
-        }
 
-        if (gameState == GameState.PLAYING && menu.startMode == Menu.NetworkMode.CLIENT) {
+            Vector3 mousePos = camera.unproject(new Vector3(Gdx.input.getX(), Gdx.input.getY(), 0f));
+            Vector2 direction = new Vector2(mousePos.x - player.getCenterX(), mousePos.y - player.getCenterY()).nor();
+            float angle = direction.angleDeg();
+            player.rotation = angle;
+            player.facingLeft = (angle >= 135 && angle < 225);
+
             try {
+                float stateTime;
                 if (clientMoving) {
-                    float current = playerStateTimeField.getFloat(player);
-                    playerStateTimeField.setFloat(player, current + delta);
+                    stateTime = playerStateTimeField.getFloat(player) + delta;
+                    playerStateTimeField.setFloat(player, stateTime);
                 } else {
-                    playerStateTimeField.setFloat(player, 4f);
+                    stateTime = 4f;
+                    playerStateTimeField.setFloat(player, stateTime);
                 }
+
+                TextureRegion frame;
+                if (angle >= 45 && angle < 135) {
+                    frame = backWalkAnimation.getKeyFrame(stateTime, clientMoving);
+                } else if (angle >= 135 && angle < 225) {
+                    frame = sideWalkAnimation.getKeyFrame(stateTime, clientMoving);
+                } else if (angle >= 225 && angle < 315) {
+                    frame = frontWalkAnimation.getKeyFrame(stateTime, clientMoving);
+                } else {
+                    frame = sideWalkAnimation.getKeyFrame(stateTime, clientMoving);
+                }
+                playerCurrentFrameField.set(player, frame);
             } catch (IllegalAccessException e) {
-                e.printStackTrace();
+                Gdx.app.error("Reflection", "Failed to access player fields", e);
             }
         }
 
