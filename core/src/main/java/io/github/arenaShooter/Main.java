@@ -588,9 +588,12 @@ public class Main extends ApplicationAdapter {
             font.setColor(Color.LIGHT_GRAY);
             if (this.menu.startMode == Menu.NetworkMode.HOST) {
                 drawCenteredText("Press [Enter] to restart", centerY - 55, 1.2f);
+                drawCenteredText("Press [Esc] to quit", centerY - 80, 1.2f);
+                drawCenteredText("Press [q] to return to menu", centerY - 105, 1.2f);
+            } else {
+                drawCenteredText("Press [Esc] to quit", centerY - 55, 1.2f);
+                drawCenteredText("Press [q] to return to menu", centerY - 80, 1.2f);
             }
-            drawCenteredText("Press [Esc] to quit", centerY - 80, 1.2f);
-            drawCenteredText("Press [q] to return to menu", centerY - 105, 1.2f);
 
             drawCenteredText(String.format("Gold earned: %d / %d", player.goldEarned, scores.goldEarned), centerY - 130, 1.2f);
             drawCenteredText(String.format("Enemies killed: %d / %d", player.enemiesKilled, scores.enemiesKilled), centerY - 150, 1.2f);
