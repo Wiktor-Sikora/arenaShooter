@@ -351,7 +351,7 @@ public class Main extends ApplicationAdapter {
 
         if (gameState == GameState.PLAYING) {
             if (menu.startMode == Menu.NetworkMode.CLIENT) {
-//                player.handleInput(delta);
+                player.handleInput(delta);
             }
             sendNetworkInput();
 
@@ -1132,32 +1132,24 @@ public class Main extends ApplicationAdapter {
     }
 
     private void handleStateMessage(String message) {
-        if (menu.startMode != Menu.NetworkMode.CLIENT) {
-            return;
-        }
+        if (menu.startMode != Menu.NetworkMode.CLIENT) return;
 
         String[] parts = message.split("\\s+");
-        if (parts.length < 3) {
-            return;
-        }
+        if (parts.length < 3) return;
 
-        GameState incomingState;
-        int incomingWave;
         try {
-            incomingState = GameState.valueOf(parts[1]);
-            incomingWave = Integer.parseInt(parts[2]);
-        } catch (IllegalArgumentException ignored) {
-            return;
-        }
+            GameState incomingState = GameState.valueOf(parts[1]);
+            int incomingWave = Integer.parseInt(parts[2]);
 
-        Gdx.app.postRunnable(() -> {
-            waveNumber = incomingWave;
-            gameState = incomingState;
-            if (incomingState == GameState.STORE && shopUI != null) {
-                shopUI.randomizeShop();
-                shopUI.resetWavePurchases();
-            }
-        });
+            Gdx.app.postRunnable(() -> {
+                waveNumber = incomingWave;
+                gameState = incomingState;
+                if (incomingState == GameState.STORE && shopUI != null) {
+                    shopUI.randomizeShop();
+                    shopUI.resetWavePurchases();
+                }
+            });
+        } catch (IllegalArgumentException ignored) {}
     }
 
     private void syncHostGameStateIfNeeded() {
