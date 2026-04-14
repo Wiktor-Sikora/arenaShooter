@@ -338,7 +338,11 @@ public class ShopUI {
         batch.begin();
         font.getData().setScale(1.3f);
         font.setColor(Color.GREEN);
-        drawCenteredText("Press [ENTER] to start new wave!", 50);
+        if (game.menu.startMode == Menu.NetworkMode.HOST) {
+            drawCenteredText("Press [ENTER] to start new wave!", 50);
+        } else {
+            drawCenteredText("Waiting for host to start new wave...", 50);
+        }
         batch.end();
     }
 
