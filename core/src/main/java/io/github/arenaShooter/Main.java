@@ -1564,19 +1564,22 @@ public class Main extends ApplicationAdapter {
                     if (player.weapon != null) {
                         player.weapon.damage = player.weapon.damage + playerDamageBonus;
                     }
-                    if (!player.weapon.name.equals(rweapon)) {
-                        switch (rweapon) {
-                            case "Gun":
-                                player.equipWeapon(defaultGun);
-                                break;
-                            case "Shotgun":
-                                player.equipWeapon(shotgun);
-                                break;
-                            case "Uzi":
-                                player.equipWeapon(uzi);
-                                break;
-                        }
-                        player.weapon.damage += player.dmg;
+                    final String newWeapon = rweapon;
+                    if (!player.weapon.name.equals(newWeapon)) {
+                        Gdx.app.postRunnable(() -> {
+                            switch (newWeapon) {
+                                case "Gun":
+                                    player.equipWeapon(defaultGun);
+                                    break;
+                                case "Shotgun":
+                                    player.equipWeapon(shotgun);
+                                    break;
+                                case "Uzi":
+                                    player.equipWeapon(uzi);
+                                    break;
+                            }
+                            player.weapon.damage += player.dmg;
+                        });
                     }
                     player.goldEarned = rGoldEarned;
                     player.enemiesKilled = rEnemiesKilled;
