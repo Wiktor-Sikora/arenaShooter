@@ -236,12 +236,14 @@ public class NetworkServer implements Runnable {
         for (PlayerInput inp : latestInputs.values()) {
             for (ClientState state : clientStates.values()) {
                 if (state.playerId == inp.playerId) {
-                    float speed = 170f;
-                    state.x += inp.moveX * speed * (float) TICK_DT_SECONDS;
-                    state.y += inp.moveY * speed * (float) TICK_DT_SECONDS;
+                    float baseSpeed = 170f;
+                    float totalSpeed = baseSpeed + state.speedBonus;
+                    state.x += inp.moveX * totalSpeed * (float) TICK_DT_SECONDS;
+                    state.y += inp.moveY * totalSpeed * (float) TICK_DT_SECONDS;
                     state.rotation = inp.rotation;
                     state.weaponName = inp.weaponName;
                     state.hp = inp.health;
+                    System.out.println("[SERVER] Player " + state.playerId + " HP updated to " + state.hp);
                     lastProcessedInputTick.put(inp.playerId, inp.tick);
                     break;
                 }
