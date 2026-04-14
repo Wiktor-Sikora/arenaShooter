@@ -369,7 +369,7 @@ public class Main extends ApplicationAdapter {
             if (Gdx.input.isKeyJustPressed(Input.Keys.Q)) returnToMenu();
         } else if (gameState == GameState.STORE) {
 
-            if (Gdx.input.isKeyJustPressed(Input.Keys.ENTER)) {
+            if (menu.startMode == Menu.NetworkMode.HOST && Gdx.input.isKeyJustPressed(Input.Keys.ENTER)) {
                 startNextWave();
                 return;
             }
@@ -690,19 +690,34 @@ public class Main extends ApplicationAdapter {
             float distanceToPlayer = 0;
             float x = 0;
             float y = 0;
-            while (distanceToPlayer < 500) {
+            boolean tooClose;
+
+            do {
+                tooClose = false;
                 x = (float)(AREA_OFFSET + Math.random() * PLAYABLE_AREA_SIZE);
                 y = (float)(AREA_OFFSET + Math.random() * PLAYABLE_AREA_SIZE);
+
                 float dx = player.hitbox.getX() - x;
                 float dy = player.hitbox.getY() - y;
                 distanceToPlayer = (float) Math.sqrt(dx * dx + dy * dy);
-            }
+                if (distanceToPlayer < 500) tooClose = true;
+
+                for (RemotePlayerState state : remotePlayers.values()) {
+                    if (state.dead) continue;
+                    dx = state.displayX - x;
+                    dy = state.displayY - y;
+                    float dist = (float) Math.sqrt(dx * dx + dy * dy);
+                    if (dist < 500) {
+                        tooClose = true;
+                        break;
+                    }
+                }
+            } while (tooClose);
 
             Enemy enemy = enemyFactory.get(rand.nextInt(enemyFactory.size())).get();
             enemy.hitbox.setPosition(x, y);
             enemy.speed = enemy.baseSpeed * multiplier;
             enemy.damage = enemy.baseDamage * multiplier;
-
             enemies.add(enemy);
         }
     }
