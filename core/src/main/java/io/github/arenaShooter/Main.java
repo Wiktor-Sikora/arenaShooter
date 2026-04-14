@@ -351,10 +351,15 @@ public class Main extends ApplicationAdapter {
 
         if (gameState == GameState.PLAYING) {
             if (menu.startMode == Menu.NetworkMode.CLIENT) {
-                player.handleInput(delta);
+                if (Gdx.input.isTouched(Input.Buttons.LEFT)) {
+                    Vector3 unprojectedCords = camera.unproject(new Vector3(Gdx.input.getX(), Gdx.input.getY(), 0f));
+                    Vector2 direction = new Vector2(unprojectedCords.x - player.getCenterX(), unprojectedCords.y - player.getCenterY());
+                    player.weapon.setPlayerId(player.playerId);
+                    player.weapon.shoot(direction);
+                    sendNetworkShoot(player.getCenterX(), player.getCenterY(), direction.x, direction.y, player.weapon.name);
+                }
             }
             sendNetworkInput();
-
             return;
         } else if (gameState == GameState.DEAD) {
             if (menu.startMode == Menu.NetworkMode.HOST) {
@@ -772,6 +777,7 @@ public class Main extends ApplicationAdapter {
         waveNumber = 0;
         globalGold = 0;
         globalGoldEarned = 0;
+
 
         if (menu.startMode == Menu.NetworkMode.HOST && networkConnected) {
             try { networkClient.sendMessage("RESTART " + networkClient.getClientId()); } catch (IOException e) {}
@@ -1317,7 +1323,9 @@ public class Main extends ApplicationAdapter {
 
                 if (networkClient != null && buyerId.equals(networkClient.getClientId())) {
                     System.out.println("[CLIENT] Applying purchase for " + buyerId);
-                    shopUI.applyPurchase(itemId, Main.this);
+                    if (!"HEALTH_POTION".equals(itemId)) {
+                        shopUI.applyPurchase(itemId, Main.this);
+                    }
                     sendNetworkInput();
                 } else {
                     System.out.println("[CLIENT] Skipping purchase application – not the buyer");
