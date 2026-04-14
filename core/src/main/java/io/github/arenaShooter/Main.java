@@ -430,6 +430,8 @@ public class Main extends ApplicationAdapter {
         }
 
         if (gameState == GameState.PLAYING) {
+            updateRemotePlayers(delta);
+
             if (menu.startMode != Menu.NetworkMode.CLIENT) {
                 player.update(delta);
             }
@@ -1139,6 +1141,7 @@ public class Main extends ApplicationAdapter {
         try {
             GameState incomingState = GameState.valueOf(parts[1]);
             int incomingWave = Integer.parseInt(parts[2]);
+            System.out.println("[CLIENT] State message: " + incomingState + " wave " + incomingWave);
 
             Gdx.app.postRunnable(() -> {
                 waveNumber = incomingWave;
@@ -1146,9 +1149,12 @@ public class Main extends ApplicationAdapter {
                 if (incomingState == GameState.STORE && shopUI != null) {
                     shopUI.randomizeShop();
                     shopUI.resetWavePurchases();
+                    System.out.println("[CLIENT] Shop randomized");
                 }
             });
-        } catch (IllegalArgumentException ignored) {}
+        } catch (IllegalArgumentException ignored) {
+            System.out.println("[CLIENT] Invalid state message: " + message);
+        }
     }
 
     private void syncHostGameStateIfNeeded() {
