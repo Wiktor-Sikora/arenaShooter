@@ -169,3 +169,7 @@ Thumbs.db
 ## Database
 
 score.db
+
+
+# last_ip
+/assets/last_ip.txt
