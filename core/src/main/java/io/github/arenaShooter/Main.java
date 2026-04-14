@@ -1318,6 +1318,7 @@ public class Main extends ApplicationAdapter {
                 if (networkClient != null && buyerId.equals(networkClient.getClientId())) {
                     System.out.println("[CLIENT] Applying purchase for " + buyerId);
                     shopUI.applyPurchase(itemId, Main.this);
+                    sendNetworkInput();
                 } else {
                     System.out.println("[CLIENT] Skipping purchase application – not the buyer");
                 }

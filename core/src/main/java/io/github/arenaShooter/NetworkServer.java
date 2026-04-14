@@ -242,8 +242,8 @@ public class NetworkServer implements Runnable {
                     state.y += inp.moveY * totalSpeed * (float) TICK_DT_SECONDS;
                     state.rotation = inp.rotation;
                     state.weaponName = inp.weaponName;
-//                    state.hp = inp.health;
-                    System.out.println("[SERVER] Player " + state.playerId + " HP updated to " + state.hp);
+                    state.hp = inp.health;
+                    System.out.println("[SERVER] INPUT from player " + state.playerId + " health=" + state.hp);
                     lastProcessedInputTick.put(inp.playerId, inp.tick);
                     break;
                 }
