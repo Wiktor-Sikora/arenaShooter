@@ -586,7 +586,9 @@ public class Main extends ApplicationAdapter {
             drawCenteredText("You are dead", centerY + 20, 5f);
 
             font.setColor(Color.LIGHT_GRAY);
-            drawCenteredText("Press [Enter] to restart", centerY - 55, 1.2f);
+            if (this.menu.startMode == Menu.NetworkMode.HOST) {
+                drawCenteredText("Press [Enter] to restart", centerY - 55, 1.2f);
+            }
             drawCenteredText("Press [Esc] to quit", centerY - 80, 1.2f);
             drawCenteredText("Press [q] to return to menu", centerY - 105, 1.2f);
 
