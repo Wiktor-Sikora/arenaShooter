@@ -73,7 +73,7 @@ public class ShopUI {
         allItems.add(new ShopItem("UZI", "Fast fire", UZI_PRICE, uziTexture, false));
         allItems.add(new ShopItem("WINGED BOOTS", "+5 Speed", BOOT_PRICE, bootTexture, true));
         allItems.add(new ShopItem("LIFE FRUIT", "+15 Max HP", LIFE_FRUIT_PRICE, fruitTexture, true));
-        allItems.add(new ShopItem("STRENGTH CHIP", "+5 DMG", LIFE_FRUIT_PRICE, chipTexture, true));
+        allItems.add(new ShopItem("STRENGTH CHIP", "+5 DMG", CHIP_PRICE, chipTexture, true));
 
     }
 

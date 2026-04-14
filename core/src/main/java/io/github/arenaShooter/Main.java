@@ -788,14 +788,26 @@ public class Main extends ApplicationAdapter {
         playerMaxHpBonus = 0;
         playerDamageBonus = 0;
 
-        player.dispose();
-        player = new Player(AREA_OFFSET + PLAYABLE_AREA_SIZE / 2, AREA_OFFSET + PLAYABLE_AREA_SIZE / 2, this);
-        shopUI.dispose();
-        shopUI = new ShopUI(this);
+        if (menu.startMode == Menu.NetworkMode.HOST) {
+            player.dispose();
+            player = new Player(AREA_OFFSET + PLAYABLE_AREA_SIZE / 2, AREA_OFFSET + PLAYABLE_AREA_SIZE / 2, this);
+            shopUI.dispose();
+            shopUI = new ShopUI(this);
+        } else {
+            clientTargetX = AREA_OFFSET + PLAYABLE_AREA_SIZE / 2f;
+            clientTargetY = AREA_OFFSET + PLAYABLE_AREA_SIZE / 2f;
+            clientPrevX = clientTargetX;
+            clientPrevY = clientTargetY;
+            clientInterpTimer = 0f;
+            clientMoving = false;
+
+            player.health = 100;
+            player.hitbox.setPosition(clientTargetX, clientTargetY);
+        }
+
         waveNumber = 0;
         globalGold = 0;
         globalGoldEarned = 0;
-
 
         if (menu.startMode == Menu.NetworkMode.HOST && networkConnected) {
             try { networkClient.sendMessage("RESTART " + networkClient.getClientId()); } catch (IOException e) {}
