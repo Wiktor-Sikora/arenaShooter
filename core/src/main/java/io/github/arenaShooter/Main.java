@@ -1323,7 +1323,7 @@ public class Main extends ApplicationAdapter {
 
                 if (networkClient != null && buyerId.equals(networkClient.getClientId())) {
                     System.out.println("[CLIENT] Applying purchase for " + buyerId);
-                    if (!"HEALTH_POTION".equals(itemId)) {
+                    if (!"HEALTH POTION".equals(itemId)) {
                         shopUI.applyPurchase(itemId, Main.this);
                     }
                     sendNetworkInput();
