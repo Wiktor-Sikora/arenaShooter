@@ -218,13 +218,16 @@ public class ShopUI {
                 break;
             case "WINGED_BOOTS":
                 player.speed += BOOT_BOOST;
+                game.playerSpeedBonus += BOOT_BOOST;
                 break;
             case "LIFE_FRUIT":
                 player.maxHealth += LIFE_FRUIT_BOOST;
+                game.playerMaxHpBonus += LIFE_FRUIT_BOOST;
                 player.health = player.maxHealth;
                 break;
             case "STRENGTH_CHIP":
                 player.dmg += CHIP_BOOST;
+                game.playerDamageBonus += CHIP_BOOST;
                 if (player.weapon != null) player.weapon.damage += CHIP_BOOST;
                 break;
         }

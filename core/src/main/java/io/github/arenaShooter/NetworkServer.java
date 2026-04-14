@@ -535,12 +535,16 @@ public class NetworkServer implements Runnable {
                     case "UZI":
                         state.weaponName = "Uzi";
                         break;
+                    case "HEALTH_POTION":
+                        float maxHp = 100 + state.maxHpBonus;
+                        state.hp = Math.min(state.hp + ShopUI.POTION_HEAL, maxHp);
+                        break;
                     case "WINGED_BOOTS":
                         state.speedBonus += ShopUI.BOOT_BOOST;
                         break;
                     case "LIFE_FRUIT":
                         state.maxHpBonus += ShopUI.LIFE_FRUIT_BOOST;
-                        state.hp = 100 + state.maxHpBonus;
+                        state.hp = 100 + state.maxHpBonus; // pełne leczenie
                         break;
                     case "STRENGTH_CHIP":
                         state.damageBonus += ShopUI.CHIP_BOOST;
