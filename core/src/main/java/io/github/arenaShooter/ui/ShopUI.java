@@ -196,6 +196,7 @@ public class ShopUI {
         Player player = game.player;
         System.out.println("[ShopUI] Applying purchase: " + itemId + ", current weapon: " + (player.weapon != null ? player.weapon.name : "null"));
         switch (itemId) {
+            case "HEALTH":
             case "HEALTH POTION":
                 if (player.health < player.maxHealth) {
                     player.health = Math.min(player.health + POTION_HEAL, player.maxHealth);
