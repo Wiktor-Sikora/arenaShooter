@@ -752,6 +752,17 @@ public class Main extends ApplicationAdapter {
 
 
     private void restartGame() {
+        for (RemotePlayerState state : remotePlayers.values()) {
+            if (state.healthBar != null) {
+                state.healthBar.dispose();
+            }
+        }
+        remotePlayers.clear();
+
+        playerSpeedBonus = 0;
+        playerMaxHpBonus = 0;
+        playerDamageBonus = 0;
+
         player.dispose();
         player = new Player(AREA_OFFSET + PLAYABLE_AREA_SIZE / 2, AREA_OFFSET + PLAYABLE_AREA_SIZE / 2, this);
         shopUI.dispose();
@@ -760,19 +771,8 @@ public class Main extends ApplicationAdapter {
         globalGold = 0;
         globalGoldEarned = 0;
 
-        playerSpeedBonus = 0;
-        playerMaxHpBonus = 0;
-        playerDamageBonus = 0;
-
-        for (RemotePlayerState state : remotePlayers.values()) {
-            if (state.healthBar != null) {
-                state.healthBar.dispose();
-            }
-        }
-        remotePlayers.clear();
-
         if (menu.startMode == Menu.NetworkMode.HOST && networkConnected) {
-            try { networkClient.sendMessage("RESTART"); } catch (IOException e) {}
+            try { networkClient.sendMessage("RESTART " + networkClient.getClientId()); } catch (IOException e) {}
         }
 
         for (int i = 0; i < bullets.size; i++) {
@@ -780,7 +780,6 @@ public class Main extends ApplicationAdapter {
             bullets.removeIndex(i);
             i--;
         }
-
         for (int i = 0; i < enemies.size; i++) {
             enemies.get(i).dispose();
             enemies.removeIndex(i);
@@ -1154,6 +1153,10 @@ public class Main extends ApplicationAdapter {
         Gdx.app.postRunnable(() -> {
             waveNumber = incomingWave;
             gameState = incomingState;
+            if (incomingState == GameState.STORE && shopUI != null) {
+                shopUI.randomizeShop();
+                shopUI.resetWavePurchases();
+            }
         });
     }
 
@@ -1308,18 +1311,18 @@ public class Main extends ApplicationAdapter {
             final int newGold = Integer.parseInt(parts[2]);
             final String itemId = parts[3];
 
-            System.out.println("[CLIENT] BUY_ACK: buyer=" + buyerId + ", myId=" + (networkClient != null ? networkClient.getClientId() : "null") + ", newGold=" + newGold + ", item=" + itemId);
+            System.out.println("[CLIENT] BUY_ACK: buyer=" + buyerId + ", myId=" + (networkClient != null ? networkClient.getClientId() : "null"));
 
             Gdx.app.postRunnable(() -> {
                 globalGold = newGold;
-                if (shopUI != null) {
-                    shopUI.updateGold(globalGold);
-                    if (playerHud != null) playerHud.updateGold(globalGold);
-                }
-                // Tylko kupujący stosuje efekt
+                if (shopUI != null) shopUI.updateGold(globalGold);
+                if (playerHud != null) playerHud.updateGold(globalGold);
+
                 if (networkClient != null && buyerId.equals(networkClient.getClientId())) {
                     System.out.println("[CLIENT] Applying purchase for " + buyerId);
                     shopUI.applyPurchase(itemId, Main.this);
+                } else {
+                    System.out.println("[CLIENT] Skipping purchase application – not the buyer");
                 }
             });
         }
