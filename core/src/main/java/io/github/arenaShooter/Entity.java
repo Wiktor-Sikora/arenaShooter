@@ -26,10 +26,16 @@ public abstract class Entity {
     public float speed;
     public float maxHealth;
     public float health;
+    public int lastHitByPlayerId = -1;
 
     public void takeDamage(float amount) {
+        takeDamage(amount, -1);
+    }
+
+    public void takeDamage(float amount, int playerId) {
         if (health <= 0) return;
         health -= amount;
+        lastHitByPlayerId = playerId;
 
         if (health <= 0) {
             health = 0;

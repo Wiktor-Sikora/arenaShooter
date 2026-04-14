@@ -5,16 +5,13 @@ import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.Input;
 import com.badlogic.gdx.InputAdapter;
 import com.badlogic.gdx.InputMultiplexer;
-import com.badlogic.gdx.graphics.g2d.BitmapFont;
-import com.badlogic.gdx.graphics.g2d.GlyphLayout;
+import com.badlogic.gdx.graphics.g2d.*;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
+import com.badlogic.gdx.math.Vector3;
 import com.badlogic.gdx.scenes.scene2d.Stage;
 import com.badlogic.gdx.utils.Array;
 import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.Texture;
-import com.badlogic.gdx.graphics.g2d.SpriteBatch;
-import com.badlogic.gdx.graphics.g2d.TextureAtlas;
-import com.badlogic.gdx.graphics.g2d.TextureRegion;
 import com.badlogic.gdx.math.Rectangle;
 import com.badlogic.gdx.math.Vector2;
 import com.badlogic.gdx.math.MathUtils;
@@ -32,6 +29,10 @@ import io.github.arenaShooter.ui.Menu;
 import io.github.arenaShooter.ui.ScoreboardMenu;
 import io.github.arenaShooter.weapons.Bullet;
 import io.github.arenaShooter.DatabaseManager;
+import io.github.arenaShooter.weapons.Gun;
+import io.github.arenaShooter.weapons.Shotgun;
+import io.github.arenaShooter.weapons.Uzi;
+
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.FileReader;
@@ -40,9 +41,12 @@ import java.io.IOException;
 import java.net.SocketException;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
 import java.util.List;
 import java.util.Random;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.function.Supplier;
@@ -67,10 +71,23 @@ public class Main extends ApplicationAdapter {
     private BitmapFont font;
     private GlyphLayout layout;
 
+    public int playerSpeedBonus = 0;
+    public int playerMaxHpBonus = 0;
+    public int playerDamageBonus = 0;
+
     private DatabaseManager db;
 
-
     public ShapeRenderer shapeRenderer;
+
+    private com.badlogic.gdx.graphics.g2d.Animation<TextureRegion> walkAnimation;
+
+    private float clientTargetX, clientTargetY;
+    private float clientPrevX, clientPrevY;
+    private float clientInterpTimer = 0f;
+    private boolean clientMoving = false;
+
+    private java.lang.reflect.Field playerCurrentFrameField;
+    private java.lang.reflect.Field playerStateTimeField;
 
     private final float MAP_TEXTURE_SIZE = 1500;
     public final float PLAYABLE_AREA_SIZE = 1400;
@@ -87,11 +104,18 @@ public class Main extends ApplicationAdapter {
     public Array<Enemy> enemies;
     public Array<Bullet> bullets;
 
+    public Gun defaultGun;
+    public Shotgun shotgun;
+    public Uzi uzi;
+
     public class HighScores {
         public int goldEarned;
         public int enemiesKilled;
         public int damageTaken;
     }
+
+    public int globalGold = 0;
+    public int globalGoldEarned = 0;
 
     private NetworkServer networkServer;
     private NetworkClient networkClient;
@@ -109,13 +133,37 @@ public class Main extends ApplicationAdapter {
     private Texture networkPlayerBulletTexture;
     private Texture networkEnemyBulletTexture;
     private TextureAtlas remotePlayerAtlas;
+    private Animation<TextureRegion> sideWalkAnimation;
+    private Animation<TextureRegion> frontWalkAnimation;
+    private Animation<TextureRegion> backWalkAnimation;
     private TextureRegion remotePlayerFrame;
+    private Map<String, Texture> remoteWeaponTextures = new HashMap<>();
+    private Map<String, float[]> remoteWeaponDimensions = new HashMap<>();
+
+    private static final String LAST_IP_FILE = "last_ip.txt";
+
+    private void saveLastIp(String ip) {
+        try (BufferedWriter writer = new BufferedWriter(new FileWriter(LAST_IP_FILE))) {
+            writer.write(ip);
+        } catch (IOException e) {
+            Gdx.app.error("Config", "Failed to save last IP", e);
+        }
+    }
+
+    private String loadLastIp() {
+        try (BufferedReader reader = new BufferedReader(new FileReader(LAST_IP_FILE))) {
+            return reader.readLine();
+        } catch (IOException e) {
+            return null;
+        }
+    }
 
     private static class EnemySnapshot {
         String type;
         float x;
         float y;
         float health;
+        boolean dead;
     }
 
     private static class BulletSnapshot {
@@ -134,9 +182,39 @@ public class Main extends ApplicationAdapter {
         float x;
         float y;
         float hp;
+        float rotation;
+        String weaponName;
+        Texture weaponTexture;
+        float weaponTextureWidth;
+        float weaponTextureHeight;
     }
 
-    private final Map<Integer, RemotePlayerSnapshot> remotePlayers = new ConcurrentHashMap<>();
+    private static class RemotePlayerState {
+        float displayX;
+        float displayY;
+        float displayRotation;
+
+        float prevX;
+        float prevY;
+
+        float targetX;
+        float targetY;
+        float targetRotation;
+
+        float interpolationTimer = 0f;
+        float hp;
+        String weaponName;
+        boolean dead = false;
+        int gold = 0;
+        int goldEarned = 0;
+        int enemiesKilled = 0;
+
+        io.github.arenaShooter.ui.HealthBar healthBar;
+        float stateTime = 0f;
+        boolean isMoving = false;
+    }
+
+    private final Map<Integer, RemotePlayerState> remotePlayers = new ConcurrentHashMap<>();
 
     HighScores scores = new HighScores();
 
@@ -164,13 +242,51 @@ public class Main extends ApplicationAdapter {
         shapeRenderer = new ShapeRenderer();
 
         map = new Texture("map.png");
-
         networkPlayerBulletTexture = new Texture("bullet.png");
         networkEnemyBulletTexture = new Texture("bone.png");
+
         remotePlayerAtlas = new TextureAtlas(Gdx.files.internal("player.atlas"));
         remotePlayerFrame = remotePlayerAtlas.findRegion("player_side_0");
 
+        Array<TextureRegion> sideWalkFrames = new Array<>();
+        for (int i = 0; i < 5; i++) {
+            sideWalkFrames.add(remotePlayerAtlas.findRegion("player_side_" + i));
+        }
+        sideWalkAnimation = new Animation<>(0.2f, sideWalkFrames, Animation.PlayMode.LOOP);
+
+        Array<TextureRegion> frontWalkFrames = new Array<>();
+        for (int i = 0; i < 3; i++) {
+            frontWalkFrames.add(remotePlayerAtlas.findRegion("player_front_" + i));
+        }
+        frontWalkAnimation = new Animation<>(0.3f, frontWalkFrames, Animation.PlayMode.LOOP);
+
+        Array<TextureRegion> backWalkFrames = new Array<>();
+        for (int i = 0; i < 3; i++) {
+            backWalkFrames.add(remotePlayerAtlas.findRegion("player_back_" + i));
+        }
+        backWalkAnimation = new Animation<>(0.3f, backWalkFrames, Animation.PlayMode.LOOP);
+
+        remoteWeaponTextures.put("Gun", new Texture("gun.png"));
+        remoteWeaponDimensions.put("Gun", new float[]{20f, 17f});
+        remoteWeaponTextures.put("Uzi", new Texture("uzi_icon.png"));
+        remoteWeaponDimensions.put("Uzi", new float[]{20f, 17f});
+        remoteWeaponTextures.put("Shotgun", new Texture("shotgun.png"));
+        remoteWeaponDimensions.put("Shotgun", new float[]{33f, 14f});
+
         player = new Player(AREA_OFFSET + PLAYABLE_AREA_SIZE / 2, AREA_OFFSET + PLAYABLE_AREA_SIZE / 2, this);
+
+        try {
+            playerStateTimeField = Player.class.getDeclaredField("stateTime");
+            playerStateTimeField.setAccessible(true);
+            playerCurrentFrameField = Player.class.getDeclaredField("currentFrame");
+            playerCurrentFrameField.setAccessible(true);
+        } catch (NoSuchFieldException e) {
+            Gdx.app.error("Reflection", "Cannot access player fields", e);
+        }
+
+        defaultGun = new Gun(this);
+        shotgun = new Shotgun(this);
+        uzi = new Uzi(this);
 
         playerHud = new PlayerHud(this);
         shopUI = new ShopUI(this);
@@ -183,7 +299,13 @@ public class Main extends ApplicationAdapter {
 
         String defaultClientHost = System.getProperty("arena.network.host", "127.0.0.1");
         int defaultPort = parsePort(System.getProperty("arena.network.port", "7777"), 7777);
+
+        String savedIp = loadLastIp();
+        if (savedIp != null && !savedIp.isBlank()) {
+            defaultClientHost = savedIp;
+        }
         menu = new Menu(this, defaultClientHost, resolveLocalHostingIp(), defaultPort);
+
         db = new DatabaseManager();
         scoreboardMenu = new ScoreboardMenu(db, font, layout, camera);
         scoreboardMenu.loadHighScores();
@@ -226,33 +348,96 @@ public class Main extends ApplicationAdapter {
         }
 
         if (gameState == GameState.PLAYING) {
+            if (menu.startMode == Menu.NetworkMode.CLIENT) {
+                if (Gdx.input.isTouched(Input.Buttons.LEFT)) {
+                    Vector3 unprojectedCords = camera.unproject(new Vector3(Gdx.input.getX(), Gdx.input.getY(), 0f));
+                    Vector2 direction = new Vector2(unprojectedCords.x - player.getCenterX(), unprojectedCords.y - player.getCenterY());
+                    player.weapon.setPlayerId(player.playerId);
+                    player.weapon.shoot(direction);
+                    sendNetworkShoot(player.getCenterX(), player.getCenterY(), direction.x, direction.y, player.weapon.name);
+                }
+            }
             sendNetworkInput();
             return;
         } else if (gameState == GameState.DEAD) {
-            if (Gdx.input.isKeyJustPressed(Input.Keys.ENTER)) restartGame();
-            if (Gdx.input.isKeyJustPressed(Input.Keys.ESCAPE)) Gdx.app.exit();
-            if (Gdx.input.isKeyJustPressed(Input.Keys.Q)) {
-                returnToMenu();
+            if (menu.startMode == Menu.NetworkMode.HOST) {
+                if (Gdx.input.isKeyJustPressed(Input.Keys.ENTER)) restartGame();
             }
+            if (Gdx.input.isKeyJustPressed(Input.Keys.ESCAPE)) Gdx.app.exit();
+            if (Gdx.input.isKeyJustPressed(Input.Keys.Q)) returnToMenu();
         } else if (gameState == GameState.STORE) {
 
-            if (Gdx.input.isKeyJustPressed(Input.Keys.ENTER)) {
+            if (menu.startMode == Menu.NetworkMode.HOST && Gdx.input.isKeyJustPressed(Input.Keys.ENTER)) {
                 startNextWave();
                 return;
             }
 
-            if (Gdx.input.isKeyJustPressed(Input.Keys.NUM_1)) shopUI.buyItem(0);
-            if (Gdx.input.isKeyJustPressed(Input.Keys.NUM_2)) shopUI.buyItem(1);
-            if (Gdx.input.isKeyJustPressed(Input.Keys.NUM_3)) shopUI.buyItem(2);
-            if (Gdx.input.isKeyJustPressed(Input.Keys.NUM_4)) shopUI.buyItem(3);
+            for (int i = 0; i < 4; i++) {
+                int keyCode = Input.Keys.NUM_1 + i;
+                if (Gdx.input.isKeyJustPressed(keyCode)) {
+                    if (networkConnected) {
+                        ShopUI.ShopItem item = shopUI.getCurrentItem(i);
+                        if (item != null) {
+                            sendNetworkBuy(item.getPrice(), item.getName());
+                        }
+                    } else {
+                        shopUI.buyItem(i);
+                    }
+                    break;
+                }
+            }
         }
     }
 
     private void logic() {
         float delta = Gdx.graphics.getDeltaTime();
 
+        if (gameState == GameState.PLAYING && menu.startMode == Menu.NetworkMode.CLIENT) {
+            float interpDuration = 0.2f;
+            clientInterpTimer += delta;
+            float alpha = MathUtils.clamp(clientInterpTimer / interpDuration, 0f, 1f);
+            float newX = MathUtils.lerp(clientPrevX, clientTargetX, alpha);
+            float newY = MathUtils.lerp(clientPrevY, clientTargetY, alpha);
+            player.hitbox.setPosition(newX, newY);
+
+            Vector3 mousePos = camera.unproject(new Vector3(Gdx.input.getX(), Gdx.input.getY(), 0f));
+            Vector2 direction = new Vector2(mousePos.x - player.getCenterX(), mousePos.y - player.getCenterY()).nor();
+            float angle = direction.angleDeg();
+            player.rotation = angle;
+            player.facingLeft = (angle >= 135 && angle < 225);
+
+            try {
+                float stateTime;
+                if (clientMoving) {
+                    stateTime = playerStateTimeField.getFloat(player) + delta;
+                    playerStateTimeField.setFloat(player, stateTime);
+                } else {
+                    stateTime = 4f;
+                    playerStateTimeField.setFloat(player, stateTime);
+                }
+
+                TextureRegion frame;
+                if (angle >= 45 && angle < 135) {
+                    frame = backWalkAnimation.getKeyFrame(stateTime, clientMoving);
+                } else if (angle >= 135 && angle < 225) {
+                    frame = sideWalkAnimation.getKeyFrame(stateTime, clientMoving);
+                } else if (angle >= 225 && angle < 315) {
+                    frame = frontWalkAnimation.getKeyFrame(stateTime, clientMoving);
+                } else {
+                    frame = sideWalkAnimation.getKeyFrame(stateTime, clientMoving);
+                }
+                playerCurrentFrameField.set(player, frame);
+            } catch (IllegalAccessException e) {
+                Gdx.app.error("Reflection", "Failed to access player fields", e);
+            }
+        }
+
         if (gameState == GameState.PLAYING) {
-            player.update(delta);
+            updateRemotePlayers(delta);
+
+            if (menu.startMode != Menu.NetworkMode.CLIENT) {
+                player.update(delta);
+            }
 
             if (player.health <= 0) {
                 player.healthBar.dispose();
@@ -273,39 +458,41 @@ public class Main extends ApplicationAdapter {
 
             }
 
-            if (menu.startMode != Menu.NetworkMode.CLIENT) {
-                for (int i = 0; i < enemies.size; i++) {
-                    if (enemies.get(i).isDisposable()) {
-                        player.gold += GOLD_PER_KILL;
-
-                        if (shopUI != null) {
-                            shopUI.recordKill();
-                            player.goldEarned += GOLD_PER_KILL;
-                            player.enemiesKilled++;
-                            shopUI.recordGold(GOLD_PER_KILL);
-                        }
-
-                        enemies.get(i).dispose();
-                        enemies.removeIndex(i);
-                        i--;
-                    } else {
-                        enemies.get(i).update(delta);
+            for (int i = 0; i < enemies.size; i++) {
+                if (enemies.get(i).isDisposable()) {
+                    globalGold += GOLD_PER_KILL;
+                    globalGoldEarned += GOLD_PER_KILL;
+                    player.enemiesKilled++;
+                    System.out.println("[GOLD] Kill! " + (menu.startMode != null ? menu.startMode : "null") + " gold=" + player.gold + " enemies=" + player.enemiesKilled + " connected=" + networkConnected);
+                    if (shopUI != null) {
+                        shopUI.recordKill();
+                        shopUI.recordGold(GOLD_PER_KILL);
                     }
-                }
 
-                if (enemies.size == 0) {
-                    gameState = GameState.STORE;
-                    syncHostGameStateIfNeeded();
-                }
-
-                for (int i = 0; i < bullets.size; i++) {
-                    if (bullets.get(i).isExpired()) {
-                        bullets.get(i).dispose();
-                        bullets.removeIndex(i);
-                        i--;
-                    } else {
-                        bullets.get(i).update(delta);
+                    if (networkConnected) {
+                        sendNetworkKill();
                     }
+
+                    enemies.get(i).dispose();
+                    enemies.removeIndex(i);
+                    i--;
+                } else {
+                    enemies.get(i).update(delta);
+                }
+            }
+
+            if (menu.startMode != Menu.NetworkMode.CLIENT && enemies.size == 0) {
+                gameState = GameState.STORE;
+                syncHostGameStateIfNeeded();
+            }
+
+            for (int i = 0; i < bullets.size; i++) {
+                if (bullets.get(i).isExpired()) {
+                    bullets.get(i).dispose();
+                    bullets.removeIndex(i);
+                    i--;
+                } else {
+                    bullets.get(i).update(delta);
                 }
             }
 
@@ -334,6 +521,7 @@ public class Main extends ApplicationAdapter {
         }
 
         float delta = Gdx.graphics.getDeltaTime();
+        updateRemotePlayers(delta);
         stage.act(Gdx.graphics.getDeltaTime());
 
         camera.position.x += (player.getCenterX() - camera.position.x) * 5f * delta;
@@ -369,12 +557,14 @@ public class Main extends ApplicationAdapter {
             }
 
             batch.end();
+            renderRemotePlayerHealthBars();
             stage.draw();
             playerHud.render();
         } else if (gameState == GameState.STORE && shopUI != null) {
             player.render(batch);
             renderRemotePlayers(batch);
             batch.end();
+            renderRemotePlayerHealthBars();
             stage.draw();
             playerHud.render();
             shopUI.render();
@@ -394,9 +584,14 @@ public class Main extends ApplicationAdapter {
             drawCenteredText("You are dead", centerY + 20, 5f);
 
             font.setColor(Color.LIGHT_GRAY);
-            drawCenteredText("Press [Enter] to restart", centerY - 55, 1.2f);
-            drawCenteredText("Press [Esc] to quit", centerY - 80, 1.2f);
-            drawCenteredText("Press [q] to return to menu", centerY - 105, 1.2f);
+            if (this.menu.startMode == Menu.NetworkMode.HOST) {
+                drawCenteredText("Press [Enter] to restart", centerY - 55, 1.2f);
+                drawCenteredText("Press [Esc] to quit", centerY - 80, 1.2f);
+                drawCenteredText("Press [q] to return to menu", centerY - 105, 1.2f);
+            } else {
+                drawCenteredText("Press [Esc] to quit", centerY - 55, 1.2f);
+                drawCenteredText("Press [q] to return to menu", centerY - 80, 1.2f);
+            }
 
             drawCenteredText(String.format("Gold earned: %d / %d", player.goldEarned, scores.goldEarned), centerY - 130, 1.2f);
             drawCenteredText(String.format("Enemies killed: %d / %d", player.enemiesKilled, scores.enemiesKilled), centerY - 150, 1.2f);
@@ -438,6 +633,9 @@ public class Main extends ApplicationAdapter {
         networkPlayerBulletTexture.dispose();
         networkEnemyBulletTexture.dispose();
         remotePlayerAtlas.dispose();
+        for (Texture tex : remoteWeaponTextures.values()) {
+            tex.dispose();
+        }
         stage.dispose();
 
         if (db != null) {
@@ -467,8 +665,10 @@ public class Main extends ApplicationAdapter {
         waveNumber++;
         gameState = GameState.PLAYING;
         syncHostGameStateIfNeeded();
-        shopUI.randomizeShop();
-        shopUI.resetWavePurchases();
+        if (shopUI != null) {
+            shopUI.randomizeShop();
+            shopUI.resetWavePurchases();
+        }
 
         if (menu.startMode == Menu.NetworkMode.CLIENT) {
             clearWorldCollections();
@@ -493,19 +693,34 @@ public class Main extends ApplicationAdapter {
             float distanceToPlayer = 0;
             float x = 0;
             float y = 0;
-            while (distanceToPlayer < 500) {
+            boolean tooClose;
+
+            do {
+                tooClose = false;
                 x = (float)(AREA_OFFSET + Math.random() * PLAYABLE_AREA_SIZE);
                 y = (float)(AREA_OFFSET + Math.random() * PLAYABLE_AREA_SIZE);
+
                 float dx = player.hitbox.getX() - x;
                 float dy = player.hitbox.getY() - y;
                 distanceToPlayer = (float) Math.sqrt(dx * dx + dy * dy);
-            }
+                if (distanceToPlayer < 500) tooClose = true;
+
+                for (RemotePlayerState state : remotePlayers.values()) {
+                    if (state.dead) continue;
+                    dx = state.displayX - x;
+                    dy = state.displayY - y;
+                    float dist = (float) Math.sqrt(dx * dx + dy * dy);
+                    if (dist < 500) {
+                        tooClose = true;
+                        break;
+                    }
+                }
+            } while (tooClose);
 
             Enemy enemy = enemyFactory.get(rand.nextInt(enemyFactory.size())).get();
             enemy.hitbox.setPosition(x, y);
             enemy.speed = enemy.baseSpeed * multiplier;
             enemy.damage = enemy.baseDamage * multiplier;
-
             enemies.add(enemy);
         }
     }
@@ -562,18 +777,35 @@ public class Main extends ApplicationAdapter {
 
 
     private void restartGame() {
+        for (RemotePlayerState state : remotePlayers.values()) {
+            if (state.healthBar != null) {
+                state.healthBar.dispose();
+            }
+        }
+        remotePlayers.clear();
+
+        playerSpeedBonus = 0;
+        playerMaxHpBonus = 0;
+        playerDamageBonus = 0;
+
         player.dispose();
         player = new Player(AREA_OFFSET + PLAYABLE_AREA_SIZE / 2, AREA_OFFSET + PLAYABLE_AREA_SIZE / 2, this);
         shopUI.dispose();
         shopUI = new ShopUI(this);
         waveNumber = 0;
+        globalGold = 0;
+        globalGoldEarned = 0;
+
+
+        if (menu.startMode == Menu.NetworkMode.HOST && networkConnected) {
+            try { networkClient.sendMessage("RESTART " + networkClient.getClientId()); } catch (IOException e) {}
+        }
 
         for (int i = 0; i < bullets.size; i++) {
             bullets.get(i).dispose();
             bullets.removeIndex(i);
             i--;
         }
-
         for (int i = 0; i < enemies.size; i++) {
             enemies.get(i).dispose();
             enemies.removeIndex(i);
@@ -645,14 +877,50 @@ public class Main extends ApplicationAdapter {
         if (Gdx.input.isKeyPressed(Input.Keys.W)) moveY += 1f;
 
         boolean fire = Gdx.input.isTouched(Input.Buttons.LEFT);
-        String payload = "INPUT " + networkClient.getClientId() + " " + networkInputTick + " " + moveX + " " + moveY + " " + fire;
-
+        String weaponName = player.weapon != null ? player.weapon.name : "Gun";
+        String payload = "INPUT " + networkClient.getClientId() + " " + networkInputTick + " " + moveX + " " + moveY + " " + fire + " " + player.rotation + " " + weaponName + " " + player.health;
         try {
             networkClient.sendMessage(payload);
             networkInputTick++;
         } catch (IOException e) {
             networkConnected = false;
             Gdx.app.error("Networking", "Failed to send input packet", e);
+        }
+    }
+
+    public void sendNetworkShoot(float x, float y, float dirX, float dirY, String weaponName) {
+        if (!networkConnected || networkClient == null || !networkClient.isConnected()) {
+            return;
+        }
+        try {
+            networkClient.sendMessage("SHOOT " + networkClient.getClientId() + " " + x + " " + y + " " + dirX + " " + dirY + " " + weaponName);
+        } catch (IOException e) {
+            networkConnected = false;
+        }
+    }
+
+    public void sendNetworkKill() {
+        if (!networkConnected || networkClient == null || !networkClient.isConnected()) {
+            System.out.println("[NET] sendNetworkKill: not connected");
+            return;
+        }
+        try {
+            String msg = "KILL " + networkClient.getClientId();
+            System.out.println("[NET] Sending: " + msg);
+            networkClient.sendMessage(msg);
+        } catch (IOException e) {
+            networkConnected = false;
+        }
+    }
+
+    public void sendNetworkBuy(int price, String itemId) {
+        if (!networkConnected || networkClient == null || !networkClient.isConnected()) {
+            return;
+        }
+        try {
+            networkClient.sendMessage("BUY " + networkClient.getClientId() + " " + price + " " + itemId);
+        } catch (IOException e) {
+            networkConnected = false;
         }
     }
 
@@ -678,6 +946,29 @@ public class Main extends ApplicationAdapter {
         }
         if (message.startsWith("WORLD ")) {
             handleWorldMessage(message);
+            return;
+        }
+        if (message.startsWith("SHOOT ")) {
+            handleShootMessage(message);
+            return;
+        }
+        if (message.startsWith("GOLD ")) {
+            handleGoldMessage(message);
+            return;
+        }
+        if (message.startsWith("BUY_ACK ") || message.startsWith("BUY_REJECT ")) {
+            handleBuyMessage(message);
+            return;
+        }
+        if (message.startsWith("GAME_OVER")) {
+            Gdx.app.postRunnable(() -> gameState = GameState.DEAD);
+            return;
+        }
+        if (message.startsWith("RESTART")) {
+            Gdx.app.postRunnable(() -> {
+                gameState = GameState.PLAYING;
+                restartGame();
+            });
             return;
         }
         if (!message.startsWith("SNAPSHOT ")) {
@@ -739,6 +1030,8 @@ public class Main extends ApplicationAdapter {
             }
         } else if (selectedMode == Menu.NetworkMode.CLIENT) {
             try {
+                String clientHost = menu.getClientHost();
+                saveLastIp(clientHost);
                 networkConnected = networkClient.connect(menu.getClientHost(), menu.getPort());
                 lobbyMenu = new LobbyMenu(this, String.format("%s:%s", menu.getClientHost(), menu.getPort()));
             } catch (IOException e) {
@@ -864,28 +1157,28 @@ public class Main extends ApplicationAdapter {
     }
 
     private void handleStateMessage(String message) {
-        if (menu.startMode != Menu.NetworkMode.CLIENT) {
-            return;
-        }
+        if (menu.startMode != Menu.NetworkMode.CLIENT) return;
 
         String[] parts = message.split("\\s+");
-        if (parts.length < 3) {
-            return;
-        }
+        if (parts.length < 3) return;
 
-        GameState incomingState;
-        int incomingWave;
         try {
-            incomingState = GameState.valueOf(parts[1]);
-            incomingWave = Integer.parseInt(parts[2]);
-        } catch (IllegalArgumentException ignored) {
-            return;
-        }
+            GameState incomingState = GameState.valueOf(parts[1]);
+            int incomingWave = Integer.parseInt(parts[2]);
+            System.out.println("[CLIENT] State message: " + incomingState + " wave " + incomingWave);
 
-        Gdx.app.postRunnable(() -> {
-            waveNumber = incomingWave;
-            gameState = incomingState;
-        });
+            Gdx.app.postRunnable(() -> {
+                waveNumber = incomingWave;
+                gameState = incomingState;
+                if (incomingState == GameState.STORE && shopUI != null) {
+                    shopUI.randomizeShop();
+                    shopUI.resetWavePurchases();
+                    System.out.println("[CLIENT] Shop randomized");
+                }
+            });
+        } catch (IllegalArgumentException ignored) {
+            System.out.println("[CLIENT] Invalid state message: " + message);
+        }
     }
 
     private void syncHostGameStateIfNeeded() {
@@ -927,7 +1220,8 @@ public class Main extends ApplicationAdapter {
             payload.append(enemyTypeCode(enemy)).append(',')
                 .append(enemy.hitbox.x).append(',')
                 .append(enemy.hitbox.y).append(',')
-                .append(enemy.health).append(' ');
+                .append(enemy.health).append(',')
+                .append(!enemy.isAlive()).append(' ');
         }
 
         payload.append("B ").append(bullets.size).append(' ');
@@ -961,6 +1255,103 @@ public class Main extends ApplicationAdapter {
         return "S";
     }
 
+    private void handleShootMessage(String message) {
+        String[] parts = message.split("\\s+");
+        if (parts.length < 6) {
+            return;
+        }
+        String shooterId = parts[1];
+        if (shooterId.equals(networkClient.getClientId())) {
+            return;
+        }
+        try {
+            float x = Float.parseFloat(parts[2]);
+            float y = Float.parseFloat(parts[3]);
+            float dirX = Float.parseFloat(parts[4]);
+            float dirY = Float.parseFloat(parts[5]);
+            String weaponName = parts.length > 6 ? parts[6] : "Gun";
+            final float finalX = x;
+            final float finalY = y;
+            final Vector2 direction = new Vector2(dirX, dirY);
+            final String finalWeaponName = weaponName;
+            Gdx.app.postRunnable(() -> {
+                createRemotePlayerBullet(finalX, finalY, direction, finalWeaponName);
+            });
+        } catch (NumberFormatException ignored) {
+        }
+    }
+
+    private void createRemotePlayerBullet(float x, float y, Vector2 direction, String weaponName) {
+        Texture tex = networkPlayerBulletTexture;
+        float damage = 20f;
+        float speed = 500f;
+        float range = 300f;
+
+        int width = 5;
+        int height = 15;
+
+        if ("Uzi".equals(weaponName)) {
+            damage = 20f;
+            range = 500f;
+        } else if ("Shotgun".equals(weaponName)) {
+            damage = 8f;
+            range = 500f;
+            width = 5;
+            height = 15;
+        }
+
+        addBullet(new Bullet(this, x, y, direction, tex, width, height, damage, speed, range, Bullet.Owner.PLAYER));
+    }
+
+    private void handleGoldMessage(String message) {
+        String[] parts = message.split("\\s+");
+        if (parts.length < 2) return;
+        try {
+            int newGold = Integer.parseInt(parts[1]);
+            Gdx.app.postRunnable(() -> {
+                globalGold = newGold;
+                if (shopUI != null) shopUI.updateGold(globalGold);
+                if (playerHud != null) playerHud.updateGold(globalGold);
+            });
+        } catch (NumberFormatException ignored) {}
+    }
+
+    private void handleBuyMessage(String message) {
+        String[] parts = message.split("\\s+");
+        if (parts.length < 2) return;
+
+        if (message.startsWith("BUY_REJECT ")) {
+            Gdx.app.postRunnable(() -> {
+                if (shopUI != null) shopUI.showPurchaseRejected();
+            });
+            return;
+        }
+
+        if (message.startsWith("BUY_ACK ") && parts.length >= 4) {
+            final String buyerId = parts[1];
+            final int newGold = Integer.parseInt(parts[2]);
+            final String itemId = parts[3];
+
+            System.out.println("[CLIENT] BUY_ACK: buyer=" + buyerId + ", myId=" + (networkClient != null ? networkClient.getClientId() : "null"));
+
+            Gdx.app.postRunnable(() -> {
+                globalGold = newGold;
+                if (shopUI != null) shopUI.updateGold(globalGold);
+                if (playerHud != null) playerHud.updateGold(globalGold);
+
+                if (networkClient != null && buyerId.equals(networkClient.getClientId())) {
+                    System.out.println("[CLIENT] Applying purchase for " + buyerId);
+                    if (!"HEALTH POTION".equals(itemId)) {
+                        shopUI.applyPurchase(itemId, Main.this);
+                    }
+                    sendNetworkInput();
+                } else {
+                    System.out.println("[CLIENT] Skipping purchase application – not the buyer");
+                }
+            });
+        }
+    }
+
     private void handleWorldMessage(String message) {
         if (menu.startMode != Menu.NetworkMode.CLIENT) {
             return;
@@ -980,8 +1371,8 @@ public class Main extends ApplicationAdapter {
 
         List<EnemySnapshot> enemySnapshots = new ArrayList<>();
         for (int i = 0; i < enemyCount && index < parts.length; i++) {
-            String[] enemyParts = parts[index++].split(",", 4);
-            if (enemyParts.length < 4) {
+            String[] enemyParts = parts[index++].split(",", 5);
+            if (enemyParts.length < 5) {
                 continue;
             }
             try {
@@ -990,6 +1381,7 @@ public class Main extends ApplicationAdapter {
                 snapshot.x = Float.parseFloat(enemyParts[1]);
                 snapshot.y = Float.parseFloat(enemyParts[2]);
                 snapshot.health = Float.parseFloat(enemyParts[3]);
+                snapshot.dead = Boolean.parseBoolean(enemyParts[4]);
                 enemySnapshots.add(snapshot);
             } catch (NumberFormatException ignored) {
                 return;
@@ -1053,12 +1445,18 @@ public class Main extends ApplicationAdapter {
                 }
                 Enemy created = createEnemyByType(snapshot.type, snapshot.x, snapshot.y);
                 created.health = snapshot.health;
+                if (snapshot.dead) {
+                    created.setDeadState();
+                }
                 enemies.insert(i, created);
                 continue;
             }
 
             enemy.hitbox.setPosition(snapshot.x, snapshot.y);
             enemy.health = snapshot.health;
+            if (snapshot.dead && enemy.isAlive()) {
+                enemy.setDeadState();
+            }
         }
 
         while (enemies.size > snapshots.size()) {
@@ -1068,13 +1466,16 @@ public class Main extends ApplicationAdapter {
     }
 
     private Enemy createEnemyByType(String type, float x, float y) {
+        Enemy enemy;
         if ("K".equals(type)) {
-            return new Skeleton(x, y, this);
+            enemy = new Skeleton(x, y, this);
+        } else if ("Z".equals(type)) {
+            enemy = new Zombie(x, y, this);
+        } else {
+            enemy = new Slime(x, y, this);
         }
-        if ("Z".equals(type)) {
-            return new Zombie(x, y, this);
-        }
-        return new Slime(x, y, this);
+        enemy.isRemote = true;
+        return enemy;
     }
 
     private void reconcileBullets(List<BulletSnapshot> snapshots) {
@@ -1141,80 +1542,283 @@ public class Main extends ApplicationAdapter {
     }
 
     private void handleSnapshotMessage(String message) {
-        if (networkClient == null || gameState != GameState.PLAYING) {
-            return;
-        }
-
         String[] parts = message.split("\\s+");
-        if (parts.length < 8) {
-            return;
-        }
+        if (parts.length < 10) return;
 
-        int index = 1;
-        int selfId;
-        float selfX;
-        float selfY;
-        float selfHp;
         try {
-            index++; // server tick, currently unused
-            selfId = Integer.parseInt(parts[index++]);
-            selfX = Float.parseFloat(parts[index++]);
-            selfY = Float.parseFloat(parts[index++]);
-            selfHp = Float.parseFloat(parts[index++]);
-            index++; // lastAckTick
-        } catch (NumberFormatException ignored) {
-            return;
-        }
+            int myId = Integer.parseInt(parts[2]);
+            float myX = Float.parseFloat(parts[3]);
+            float myY = Float.parseFloat(parts[4]);
+            float myHp = Float.parseFloat(parts[5]);
 
-        int playersCount;
-        try {
-            playersCount = Integer.parseInt(parts[index++]);
-        } catch (NumberFormatException ignored) {
-            return;
-        }
-
-        List<RemotePlayerSnapshot> parsed = new ArrayList<>();
-        for (int i = 0; i < playersCount && index < parts.length; i++) {
-            String[] p = parts[index++].split(",", 4);
-            if (p.length < 4) {
-                continue;
-            }
-            try {
-                RemotePlayerSnapshot snapshot = new RemotePlayerSnapshot();
-                snapshot.id = Integer.parseInt(p[0]);
-                snapshot.x = Float.parseFloat(p[1]);
-                snapshot.y = Float.parseFloat(p[2]);
-                snapshot.hp = Float.parseFloat(p[3]);
-                parsed.add(snapshot);
-            } catch (NumberFormatException ignored) {
-                return;
-            }
-        }
-
-        Gdx.app.postRunnable(() -> {
-            if (menu.startMode == Menu.NetworkMode.CLIENT) {
-                player.hitbox.x = selfX;
-                player.hitbox.y = selfY;
-                player.health = selfHp;
-            }
-
-            remotePlayers.clear();
-            for (RemotePlayerSnapshot snapshot : parsed) {
-                if (snapshot.id != selfId) {
-                    remotePlayers.put(snapshot.id, snapshot);
+            if (networkClient != null && myId == networkClient.getPlayerId()) {
+                if (menu.startMode == Menu.NetworkMode.CLIENT) {
+                    clientPrevX = player.hitbox.x;
+                    clientPrevY = player.hitbox.y;
+                    clientTargetX = myX;
+                    clientTargetY = myY;
+                    clientInterpTimer = 0f;
+                    float dx = myX - clientPrevX;
+                    float dy = myY - clientPrevY;
+                    clientMoving = (dx * dx + dy * dy) > 0.25f;
+                    player.health = myHp;
                 }
             }
-        });
+
+            int playerCount = Integer.parseInt(parts[9]);
+            int playerStartIndex = 10;
+            Set<Integer> currentRemoteIds = new HashSet<>();
+
+
+            for (int i = 0; i < playerCount; i++) {
+                int index = playerStartIndex + i;
+                if (index >= parts.length) break;
+
+                String[] pData = parts[index].split(",");
+                if (pData.length < 11) continue;
+
+                int remoteId = Integer.parseInt(pData[0]);
+                currentRemoteIds.add(remoteId);
+
+                float rx = Float.parseFloat(pData[1]);
+                float ry = Float.parseFloat(pData[2]);
+                float rhp = Float.parseFloat(pData[3]);
+                float rrot = Float.parseFloat(pData[4]);
+                String rweapon = pData[5];
+                int rGoldEarned = Integer.parseInt(pData[6]);
+                int rEnemiesKilled = Integer.parseInt(pData[7]);
+                int rSpeedBonus = Integer.parseInt(pData[8]);
+                int rMaxHpBonus = Integer.parseInt(pData[9]);
+                int rDamageBonus = Integer.parseInt(pData[10]);
+
+                if (networkClient != null && remoteId == networkClient.getPlayerId()) {
+                    currentRemoteIds.add(remoteId);
+                    playerSpeedBonus = rSpeedBonus;
+                    playerMaxHpBonus = rMaxHpBonus;
+                    playerDamageBonus = rDamageBonus;
+                    player.speed = 170f + playerSpeedBonus;
+                    player.maxHealth = 100 + playerMaxHpBonus;
+                    player.dmg = playerDamageBonus;
+                    if (player.weapon != null) {
+                        player.weapon.damage = player.weapon.damage + playerDamageBonus;
+                    }
+                    final String newWeapon = rweapon;
+                    if (!player.weapon.name.equals(newWeapon)) {
+                        Gdx.app.postRunnable(() -> {
+                            switch (newWeapon) {
+                                case "Gun":
+                                    player.equipWeapon(defaultGun);
+                                    break;
+                                case "Shotgun":
+                                    player.equipWeapon(shotgun);
+                                    break;
+                                case "Uzi":
+                                    player.equipWeapon(uzi);
+                                    break;
+                            }
+                            player.weapon.damage += player.dmg;
+                        });
+                    }
+                    player.goldEarned = rGoldEarned;
+                    player.enemiesKilled = rEnemiesKilled;
+                    continue;
+                }
+
+                RemotePlayerState state = remotePlayers.get(remoteId);
+                if (state == null) {
+                    final RemotePlayerState newState = new RemotePlayerState();
+                    newState.displayX = rx;
+                    newState.displayY = ry;
+                    newState.hp = rhp;
+                    newState.targetX = rx;
+                    newState.targetY = ry;
+                    newState.isMoving = false;
+                    newState.stateTime = 4f;
+                    Gdx.app.postRunnable(() -> {
+                        newState.healthBar = new io.github.arenaShooter.ui.HealthBar(this, 100, 64);
+                    });
+                    remotePlayers.put(remoteId, newState);
+                    state = newState;
+                }
+
+                float oldDisplayX = state.displayX;
+                float oldDisplayY = state.displayY;
+                state.prevX = oldDisplayX;
+                state.prevY = oldDisplayY;
+                state.targetX = rx;
+                state.targetY = ry;
+                state.targetRotation = rrot;
+                state.hp = rhp;
+                state.weaponName = rweapon;
+                state.dead = (rhp <= 0);
+                state.interpolationTimer = 0f;
+
+                float dx = rx - oldDisplayX;
+                float dy = ry - oldDisplayY;
+                boolean wasMoving = state.isMoving;
+                state.isMoving = (dx * dx + dy * dy) > 0.25f;
+                if (!state.isMoving && wasMoving) {
+                    state.stateTime = 4f;
+                }
+            }
+
+            for (Integer id : new ArrayList<>(remotePlayers.keySet())) {
+                if (!currentRemoteIds.contains(id)) {
+                    RemotePlayerState removed = remotePlayers.remove(id);
+                    if (removed != null && removed.healthBar != null) {
+                        Gdx.app.postRunnable(() -> removed.healthBar.dispose());
+                    }
+                }
+            }
+
+        } catch (Exception e) {
+            Gdx.app.error("Network", "Błąd parsowania snapshotu: " + message, e);
+        }
+    }
+
+    private void updateRemotePlayers(float delta) {
+        float interpolationDuration = 0.2f;
+
+        for (RemotePlayerState state : remotePlayers.values()) {
+            if (state.dead) continue;
+
+            state.interpolationTimer += delta;
+            float alpha = MathUtils.clamp(state.interpolationTimer / interpolationDuration, 0f, 1f);
+
+            state.displayX = MathUtils.lerp(state.prevX, state.targetX, alpha);
+            state.displayY = MathUtils.lerp(state.prevY, state.targetY, alpha);
+            state.displayRotation = MathUtils.lerpAngleDeg(state.displayRotation, state.targetRotation, 15f * delta);
+
+            if (state.isMoving) {
+                state.stateTime += delta;
+            } else {
+                state.stateTime = 4f;
+            }
+        }
     }
 
     private void renderRemotePlayers(SpriteBatch batch) {
-        if (remotePlayerFrame == null) {
-            return;
+        for (RemotePlayerState state : remotePlayers.values()) {
+            if (state.dead) continue;
+
+            float angle = state.displayRotation;
+            boolean remoteFacingLeft = false;
+            TextureRegion frame;
+
+            if (angle >= 45 && angle < 135) {
+                frame = backWalkAnimation.getKeyFrame(state.stateTime, state.isMoving);
+                remoteFacingLeft = false;
+            } else if (angle >= 135 && angle < 225) {
+                frame = sideWalkAnimation.getKeyFrame(state.stateTime, state.isMoving);
+                remoteFacingLeft = true;
+            } else if (angle >= 225 && angle < 315) {
+                frame = frontWalkAnimation.getKeyFrame(state.stateTime, state.isMoving);
+                remoteFacingLeft = false;
+            } else {
+                frame = sideWalkAnimation.getKeyFrame(state.stateTime, state.isMoving);
+                remoteFacingLeft = false;
+            }
+
+            boolean weaponBehind = (angle > 45 && angle < 135);
+            if (weaponBehind) drawRemoteWeapon(batch, state);
+
+            float drawX = state.displayX;
+            float drawY = state.displayY;
+            float tw = 64f;
+            float th = 64f;
+
+            if (remoteFacingLeft) {
+                batch.draw(frame, drawX + tw, drawY, -tw, th);
+            } else {
+                batch.draw(frame, drawX, drawY, tw, th);
+            }
+
+            if (!weaponBehind) drawRemoteWeapon(batch, state);
         }
-        for (RemotePlayerSnapshot remote : remotePlayers.values()) {
-            float drawX = remote.x - 16f;
-            float drawY = remote.y;
-            batch.draw(remotePlayerFrame, drawX, drawY, 64f, 64f);
+    }
+
+    private void drawRemoteWeapon(SpriteBatch batch, RemotePlayerState state) {
+        if (state.weaponName == null || !remoteWeaponTextures.containsKey(state.weaponName)) return;
+
+        Texture tex = remoteWeaponTextures.get(state.weaponName);
+        float[] dims = remoteWeaponDimensions.get(state.weaponName);
+        if (tex == null || dims == null) return;
+
+        float textureWidth = dims[0];
+        float textureHeight = dims[1];
+
+        // 1. Obliczanie kierunku (Logika 4-kierunkowa z Twoich klas Weapon)
+        float angle = state.displayRotation;
+        if (angle < 0) angle += 360;
+        float renderRotation = 0f;
+        boolean flipped = false;
+
+        if ((angle >= 0 && angle <= 45) || (angle > 315 && angle <= 360)) {
+            renderRotation = 0; flipped = false; // Prawo
+        } else if (angle > 135 && angle <= 225) {
+            renderRotation = 0; flipped = true;  // Lewo
+        } else if (angle > 45 && angle <= 135) {
+            renderRotation = 90; // Góra
+        } else {
+            renderRotation = -90; // Dół
+        }
+
+        float offsetX = 0;
+        float offsetY = 0;
+
+        float centerX = state.displayX + 32f;
+        float centerY = state.displayY + 32f;
+
+        if (renderRotation == 90) {
+            offsetX = -10;
+            offsetY = 25;
+        } else if (renderRotation == -90) {
+            offsetX = 0;
+            offsetY = -15;
+        } else {
+
+            switch (state.weaponName) {
+                case "Shotgun":
+                    offsetX = flipped ? -28 : -3;
+                    offsetY = -5;
+                    break;
+                case "Uzi":
+                    offsetX = flipped ? -20 : 0;
+                    offsetY = -5;
+                    break;
+                case "Gun":
+                default:
+                    offsetX = flipped ? -28 : 7;
+                    offsetY = -5;
+                    break;
+            }
+        }
+
+        // 3. Rysowanie finalne
+        batch.draw(
+            tex,
+            centerX + offsetX,
+            centerY + offsetY,
+            textureWidth / 2, textureHeight / 2, // Origin w środku tekstury broni
+            textureWidth, textureHeight,
+            1f, 1f,
+            renderRotation,
+            0, 0,
+            tex.getWidth(), tex.getHeight(),
+            flipped, false
+        );
+    }
+
+    private void renderRemotePlayerHealthBars() {
+        for (RemotePlayerState state : remotePlayers.values()) {
+            if (state.dead) {
+                if (state.healthBar != null) state.healthBar.dispose();
+                continue;
+            }
+
+            if (state.healthBar != null) {
+                state.healthBar.render(state.hp, state.displayX, state.displayY);
+            }
         }
     }
 
@@ -1222,9 +1826,10 @@ public class Main extends ApplicationAdapter {
         Vector2 closest = new Vector2(player.getCenterX(), player.getCenterY());
         float bestDistance2 = (closest.x - fromX) * (closest.x - fromX) + (closest.y - fromY) * (closest.y - fromY);
 
-        for (RemotePlayerSnapshot remote : remotePlayers.values()) {
-            float candidateX = remote.x + 16f;
-            float candidateY = remote.y + 32f;
+        for (RemotePlayerState state : remotePlayers.values()) {
+            if (state.dead) continue;
+            float candidateX = state.displayX + 16f;
+            float candidateY = state.displayY + 32f;
             float distance2 = (candidateX - fromX) * (candidateX - fromX) + (candidateY - fromY) * (candidateY - fromY);
             if (distance2 < bestDistance2) {
                 bestDistance2 = distance2;
@@ -1239,8 +1844,9 @@ public class Main extends ApplicationAdapter {
         if (hitbox.overlaps(player.hitbox)) {
             return true;
         }
-        for (RemotePlayerSnapshot remote : remotePlayers.values()) {
-            Rectangle remoteHitbox = new Rectangle(remote.x, remote.y, player.hitbox.width, player.hitbox.height);
+        for (RemotePlayerState state : remotePlayers.values()) {
+            if (state.dead) continue;
+            Rectangle remoteHitbox = new Rectangle(state.displayX, state.displayY, player.hitbox.width, player.hitbox.height);
             if (hitbox.overlaps(remoteHitbox)) {
                 return true;
             }
@@ -1253,6 +1859,16 @@ public class Main extends ApplicationAdapter {
         float epsilon = 0.1f;
         if (Math.abs(closest.x - player.getCenterX()) < epsilon && Math.abs(closest.y - player.getCenterY()) < epsilon) {
             player.takeDamage(amount);
+        } else {
+            for (RemotePlayerState state : remotePlayers.values()) {
+                if (state.dead) continue;
+                float remoteCenterX = state.displayX + 16f;
+                float remoteCenterY = state.displayY + 32f;
+                if (Math.abs(closest.x - remoteCenterX) < epsilon && Math.abs(closest.y - remoteCenterY) < epsilon) {
+                    state.hp -= amount;
+                    break;
+                }
+            }
         }
     }
 }

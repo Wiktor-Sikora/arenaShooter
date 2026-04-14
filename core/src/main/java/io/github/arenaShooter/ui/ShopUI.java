@@ -47,6 +47,8 @@ public class ShopUI {
     private int goldEarned = 0;
     private int damageTaken = 0;
 
+    private float rejectedMessageTimer = 0f;
+
     public ShopUI(Main game) {
         this.game = game;
         this.batch = new SpriteBatch();
@@ -87,7 +89,7 @@ public class ShopUI {
         return damageTaken;
     }
 
-    private static class ShopItem {
+    public static class ShopItem {
         String name;
         String desc;
         int price;
@@ -96,7 +98,7 @@ public class ShopUI {
         boolean oncePerWave;
         boolean boughtThisWave;
 
-        ShopItem(String name, String desc, int price, Texture texture, boolean oncePerWave) {
+        public ShopItem(String name, String desc, int price, Texture texture, boolean oncePerWave) {
             this.name = name;
             this.desc = desc;
             this.price = price;
@@ -105,6 +107,9 @@ public class ShopUI {
             this.oncePerWave = oncePerWave;
             this.boughtThisWave = false;
         }
+
+        public String getName() { return name; }
+        public int getPrice() { return price; }
     }
 
     public void buyItem(int index) {
@@ -178,6 +183,59 @@ public class ShopUI {
 
     }
 
+    public void updateGold(int gold){
+
+    }
+
+    public ShopItem getCurrentItem(int index) {
+        if (index >= 0 && index < currentItems.size()) return currentItems.get(index);
+        return null;
+    }
+
+    public void applyPurchase(String itemId, Main game) {
+        Player player = game.player;
+        System.out.println("[ShopUI] Applying purchase: " + itemId + ", current weapon: " + (player.weapon != null ? player.weapon.name : "null"));
+        switch (itemId) {
+            case "HEALTH":
+            case "HEALTH POTION":
+                if (player.health < player.maxHealth) {
+                    player.health = Math.min(player.health + POTION_HEAL, player.maxHealth);
+                }
+                break;
+            case "GUN":
+                if (game.defaultGun == null) { System.err.println("defaultGun is null!"); return; }
+                player.equipWeapon(game.defaultGun);
+                player.weapon.damage = game.defaultGun.damage + player.dmg;
+                break;
+            case "SHOTGUN":
+                if (game.shotgun == null) { System.err.println("shotgun is null!"); return; }
+                player.equipWeapon(game.shotgun);
+                player.weapon.damage = game.shotgun.damage + player.dmg;
+                break;
+            case "UZI":
+                if (game.uzi == null) { System.err.println("uzi is null!"); return; }
+                player.equipWeapon(game.uzi);
+                player.weapon.damage = game.uzi.damage + player.dmg;
+                break;
+            case "WINGED":
+            case "WINGED BOOTS":
+                player.speed += BOOT_BOOST;
+                game.playerSpeedBonus += BOOT_BOOST;
+                break;
+            case "LIFE":
+            case "LIFE FRUIT":
+                player.maxHealth += LIFE_FRUIT_BOOST;
+                game.playerMaxHpBonus += LIFE_FRUIT_BOOST;
+                player.health = player.maxHealth;
+                break;
+            case "STRENGTH":
+            case "STRENGTH CHIP":
+                player.dmg += CHIP_BOOST;
+                game.playerDamageBonus += CHIP_BOOST;
+//                if (player.weapon != null) player.weapon.damage += CHIP_BOOST;
+                break;
+        }
+    }
 
     private Texture loadTexture(String path) {
         try {
@@ -229,7 +287,7 @@ public class ShopUI {
         // Statystyki gracza
         font.getData().setScale(1.5f);
         font.setColor(Color.WHITE);
-        drawCenteredText("You have: " + game.player.gold + " G  |  HP: " + (int)game.player.health + "/" + (int)game.player.maxHealth, screenH - 125);
+        drawCenteredText("You have: " + game.globalGold+ " G  |  HP: " + (int)game.player.health + "/" + (int)game.player.maxHealth, screenH - 125);
 
         batch.end();
 
@@ -267,11 +325,24 @@ public class ShopUI {
             }
         }
 
+        if (rejectedMessageTimer > 0) {
+            rejectedMessageTimer -= Gdx.graphics.getDeltaTime();
+            batch.begin();
+            font.getData().setScale(1.3f);
+            font.setColor(Color.RED);
+            drawCenteredText("Purchase rejected! Not enough gold.", 80);
+            batch.end();
+        }
+
         // --- 4. Instrukcja na dole ---
         batch.begin();
         font.getData().setScale(1.3f);
         font.setColor(Color.GREEN);
-        drawCenteredText("Press [ENTER] to start new wave!", 50);
+        if (game.menu.startMode == Menu.NetworkMode.HOST) {
+            drawCenteredText("Press [ENTER] to start new wave!", 50);
+        } else {
+            drawCenteredText("Waiting for host to start new wave...", 50);
+        }
         batch.end();
     }
 
@@ -284,7 +355,7 @@ public class ShopUI {
 
         boolean isFullHp = item.name.equalsIgnoreCase("HEALTH POTION") && game.player.health >= game.player.maxHealth;
 
-        boolean canAfford = game.player.gold >= item.price;
+        boolean canAfford = game.globalGold >= item.price;
 
         // --- KOLORYSTYKA ---
         Color bgColor;
@@ -402,6 +473,14 @@ public class ShopUI {
         enemiesKilled = 0;
         goldEarned = 0;
         damageTaken = 0;
+    }
+
+    public void syncFromNetwork(int totalGoldEarned) {
+        goldEarned = totalGoldEarned;
+    }
+
+    public void showPurchaseRejected() {
+        rejectedMessageTimer = 2.0f;
     }
 
     public void dispose() {

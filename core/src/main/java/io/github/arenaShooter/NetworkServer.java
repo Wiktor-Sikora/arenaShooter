@@ -1,6 +1,7 @@
 package io.github.arenaShooter;
 
 import io.github.arenaShooter.enemies.Enemy;
+import io.github.arenaShooter.ui.ShopUI;
 import io.github.arenaShooter.weapons.Bullet;
 
 import java.io.IOException;
@@ -13,6 +14,7 @@ import java.net.SocketTimeoutException;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -29,19 +31,27 @@ public class NetworkServer implements Runnable {
         STORE
     }
 
+    private int globalGold = 0;
+
     public static class PlayerInput {
         public final int playerId;
         public final long tick;
         public final float moveX;
         public final float moveY;
         public final boolean fire;
+        public final float rotation;
+        public final String weaponName;
+        public final float health;
 
-        public PlayerInput(int playerId, long tick, float moveX, float moveY, boolean fire) {
+        public PlayerInput(int playerId, long tick, float moveX, float moveY, boolean fire, float rotation, String weaponName, float health) {
             this.playerId = playerId;
             this.tick = tick;
             this.moveX = moveX;
             this.moveY = moveY;
             this.fire = fire;
+            this.rotation = rotation;
+            this.weaponName = weaponName;
+            this.health = health;
         }
     }
 
@@ -57,7 +67,7 @@ public class NetworkServer implements Runnable {
     float WORLD_WIDTH = 1500f;
     float WORLD_HEIGHT = 1500f;
 
-    private static final long TICK_RATE_HZ = 20L;
+    private static final long TICK_RATE_HZ = 60L;
     private static final double TICK_DT_SECONDS = 1.0 / TICK_RATE_HZ;
     private static final double MAX_FRAME_SECONDS = 0.25;
     private static final int MAX_TICKS_PER_FRAME = 5;
@@ -80,7 +90,18 @@ public class NetworkServer implements Runnable {
         float x;
         float y;
         float hp;
+        float rotation;
+        String weaponName;
+        int enemiesKilled;
+        int goldEarned;
+        int damageTaken;
+
+        int speedBonus;
+        int maxHpBonus;
+        int damageBonus;
     }
+
+    private static final int GOLD_PER_KILL = 30;
 
     public void enqueueInput(PlayerInput input) {
         if (input != null) {
@@ -187,6 +208,7 @@ public class NetworkServer implements Runnable {
                 if (message.isEmpty()) {
                     continue;
                 }
+                System.out.println("[SERVER] Received: " + message);
 
                 handlePacket(message, packet.getSocketAddress());
             } catch (SocketTimeoutException timeout) {
@@ -198,23 +220,34 @@ public class NetworkServer implements Runnable {
     }
 
     private void applyBufferedInputs() {
+        Map<Integer, PlayerInput> latestInputs = new HashMap<>();
         PlayerInput input;
         while ((input = pendingInputs.poll()) != null) {
             Long processedTick = lastProcessedInputTick.get(input.playerId);
             if (processedTick != null && input.tick <= processedTick) {
                 continue;
             }
+            PlayerInput existing = latestInputs.get(input.playerId);
+            if (existing == null || input.tick > existing.tick) {
+                latestInputs.put(input.playerId, input);
+            }
+        }
 
+        for (PlayerInput inp : latestInputs.values()) {
             for (ClientState state : clientStates.values()) {
-                if (state.playerId == input.playerId) {
-                    float speed = 170f;
-                    state.x += input.moveX * speed * (float) TICK_DT_SECONDS;
-                    state.y += input.moveY * speed * (float) TICK_DT_SECONDS;
+                if (state.playerId == inp.playerId) {
+                    float baseSpeed = 170f;
+                    float totalSpeed = baseSpeed + state.speedBonus;
+                    state.x += inp.moveX * totalSpeed * (float) TICK_DT_SECONDS;
+                    state.y += inp.moveY * totalSpeed * (float) TICK_DT_SECONDS;
+                    state.rotation = inp.rotation;
+                    state.weaponName = inp.weaponName;
+                    state.hp = inp.health;
+                    System.out.println("[SERVER] INPUT from player " + state.playerId + " health=" + state.hp);
+                    lastProcessedInputTick.put(inp.playerId, inp.tick);
                     break;
                 }
             }
-
-            lastProcessedInputTick.put(input.playerId, input.tick);
         }
     }
 
@@ -229,6 +262,15 @@ public class NetworkServer implements Runnable {
                 bullets.remove(bullet);
                 bullet.dispose();
             }
+        }
+
+        boolean anyDead = false;
+        for (ClientState state : clientStates.values()) {
+            if (state.hp <= 0) anyDead = true;
+        }
+        if (anyDead && gameState == GameState.PLAYING) {
+            gameState = GameState.DEAD;
+            broadcast("GAME_OVER");
         }
 
         clampPlayersToMap();
@@ -258,6 +300,12 @@ public class NetworkServer implements Runnable {
             float selfX = self == null ? 0f : self.x;
             float selfY = self == null ? 0f : self.y;
             float selfHp = self == null ? 0f : self.hp;
+            float selfRotation = self == null ? 0f : self.rotation;
+            String selfWeapon = self == null ? "Gun" : self.weaponName;
+
+            ClientState selfState = self == null ? null : clientStates.get(clientId);
+            int selfGoldEarned = selfState == null ? 0 : selfState.goldEarned;
+            int selfKills = selfState == null ? 0 : selfState.enemiesKilled;
 
             StringBuilder payload = new StringBuilder("SNAPSHOT ")
                 .append(serverTick).append(' ')
@@ -265,6 +313,8 @@ public class NetworkServer implements Runnable {
                 .append(selfX).append(' ')
                 .append(selfY).append(' ')
                 .append(selfHp).append(' ')
+                .append(selfRotation).append(' ')
+                .append(selfWeapon).append(' ')
                 .append(lastAckTick).append(' ')
                 .append(clientStates.size());
 
@@ -273,7 +323,14 @@ public class NetworkServer implements Runnable {
                     .append(state.playerId).append(',')
                     .append(state.x).append(',')
                     .append(state.y).append(',')
-                    .append(state.hp);
+                    .append(state.hp).append(',')
+                    .append(state.rotation).append(',')
+                    .append(state.weaponName).append(',')
+                    .append(state.goldEarned).append(',')
+                    .append(state.enemiesKilled).append(',')
+                    .append(state.speedBonus).append(',')
+                    .append(state.maxHpBonus).append(',')
+                    .append(state.damageBonus);
             }
 
             sendTo(entry.getValue(), payload.toString());
@@ -297,6 +354,9 @@ public class NetworkServer implements Runnable {
                 state.x = AREA_OFFSET + PLAYABLE_AREA_SIZE / 2f;
                 state.y = AREA_OFFSET + PLAYABLE_AREA_SIZE / 2f;
                 state.hp = 100f;
+                state.weaponName = "Gun";
+                state.goldEarned = 0;
+                state.enemiesKilled = 0;
                 return state;
             });
             if (ownerClientId == null) {
@@ -328,12 +388,51 @@ public class NetworkServer implements Runnable {
             return;
         }
 
+        if ("RESTART".equalsIgnoreCase(parts[0]) && parts.length >= 2) {
+            String clientId = parts[1];
+            if (!clientId.equals(ownerClientId)) return;
+
+            gameState = GameState.PLAYING;
+            globalGold = 0;
+            bullets.clear();
+            enemies.clear();
+
+
+            for (ClientState state : clientStates.values()) {
+                state.hp = 100;
+                state.x = AREA_OFFSET + PLAYABLE_AREA_SIZE / 2f;
+                state.y = AREA_OFFSET + PLAYABLE_AREA_SIZE / 2f;
+                state.speedBonus = 0;
+                state.maxHpBonus = 0;
+                state.damageBonus = 0;
+                state.weaponName = "Gun";
+
+                state.goldEarned = 0;
+                state.enemiesKilled = 0;
+            }
+
+            broadcast("RESTART");
+            return;
+        }
+
         if ("STATE".equalsIgnoreCase(parts[0]) && parts.length >= 4) {
             String clientId = parts[1];
             if (!clientId.equals(ownerClientId)) {
                 return;
             }
             broadcast("STATE " + parts[2] + " " + parts[3]);
+            return;
+        }
+
+        if ("SHOOT".equalsIgnoreCase(parts[0]) && parts.length >= 6) {
+            if (gameState != GameState.PLAYING) {
+                return;
+            }
+            String clientId = parts[1];
+            if (!connectedClients.containsKey(clientId)) {
+                return;
+            }
+            broadcast(message);
             return;
         }
 
@@ -349,7 +448,7 @@ public class NetworkServer implements Runnable {
             return;
         }
 
-        if ("INPUT".equalsIgnoreCase(parts[0]) && parts.length >= 6) {
+        if ("INPUT".equalsIgnoreCase(parts[0]) && parts.length >= 9) {
             if (gameState != GameState.PLAYING) {
                 return;
             }
@@ -364,10 +463,106 @@ public class NetworkServer implements Runnable {
                 float moveX = Float.parseFloat(parts[3]);
                 float moveY = Float.parseFloat(parts[4]);
                 boolean fire = Boolean.parseBoolean(parts[5]);
-                enqueueInput(new PlayerInput(playerId, inputTick, moveX, moveY, fire));
+                float rotation = Float.parseFloat(parts[6]);
+                String weaponName = parts[7];
+                float health = Float.parseFloat(parts[8]);
+                enqueueInput(new PlayerInput(playerId, inputTick, moveX, moveY, fire, rotation, weaponName, health));
             } catch (NumberFormatException ignored) {
                 // Ignore malformed packets.
             }
+        }
+
+        if ("KILL".equalsIgnoreCase(parts[0]) && parts.length >= 2) {
+            if (gameState != GameState.PLAYING) {
+                return;
+            }
+            String clientId = parts[1];
+
+            globalGold += GOLD_PER_KILL;
+
+            ClientState state = clientStates.get(clientId);
+            if (state != null) {
+                state.enemiesKilled++;
+                state.goldEarned += GOLD_PER_KILL;
+                System.out.println("[SERVER] KILL from " + clientId + " (playerId=" + state.playerId +
+                    ") -> globalGold=" + globalGold + " kills=" + state.enemiesKilled);
+            }
+
+            for (SocketAddress recipient : connectedClients.values()) {
+                sendTo(recipient, "GOLD " + globalGold);
+            }
+            return;
+        }
+
+        if ("BUY".equalsIgnoreCase(parts[0]) && parts.length >= 4) {
+            if (gameState != GameState.PLAYING && gameState != GameState.STORE) {
+                return;
+            }
+
+            String clientId = parts[1];
+            int price;
+            String itemId;
+
+            try {
+                price = Integer.parseInt(parts[2]);
+                itemId = parts[3];
+            } catch (NumberFormatException e) {
+                return;
+            }
+
+
+            if (globalGold < price) {
+
+                sendTo(connectedClients.get(clientId), "BUY_REJECT " + itemId);
+                System.out.println("[SERVER] BUY_REJECT from " + clientId + " - not enough gold (has: " + globalGold + ", needs: " + price + ")");
+                return;
+            }
+
+            globalGold -= price;
+            System.out.println("[SERVER] BUY_ACK from " + clientId + " - " + itemId + " for " + price + " gold. Remaining: " + globalGold);
+
+
+            ClientState state = clientStates.get(clientId);
+            if (state != null) {
+                switch (itemId) {
+                    case "GUN":
+                        state.weaponName = "Gun";
+                        break;
+                    case "SHOTGUN":
+                        state.weaponName = "Shotgun";
+                        break;
+                    case "UZI":
+                        state.weaponName = "Uzi";
+                        break;
+                    case "HEALTH":
+                    case "HEALTH_POTION":
+                        float maxHp = 100 + state.maxHpBonus;
+                        float oldHp = state.hp;
+                        state.hp = Math.min(state.hp + ShopUI.POTION_HEAL, maxHp);
+                        System.out.println("[SERVER] HEALTH_POTION: " + oldHp + " -> " + state.hp);
+                        break;
+                    case "WINGED":
+                    case "WINGED BOOTS":
+                        state.speedBonus += ShopUI.BOOT_BOOST;
+                        break;
+                    case "LIFE":
+                    case "LIFE FRUIT":
+                        state.maxHpBonus += ShopUI.LIFE_FRUIT_BOOST;
+                        state.hp = 100 + state.maxHpBonus; // pełne leczenie
+                        break;
+                    case "STRENGTH":
+                    case "STRENGTH CHIP":
+                        state.damageBonus += ShopUI.CHIP_BOOST;
+                        break;
+                }
+            }
+
+            for (SocketAddress recipient : connectedClients.values()) {
+                sendTo(recipient, "BUY_ACK " + clientId + " " + globalGold + " " + itemId);
+                System.out.println("[SERVER] Sending BUY_ACK to all: " + clientId + " " + globalGold + " " + itemId);
+            }
+
+            return;
         }
     }
 

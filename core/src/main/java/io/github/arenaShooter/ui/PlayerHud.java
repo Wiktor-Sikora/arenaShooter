@@ -50,6 +50,11 @@ public class PlayerHud {
         coinTexture = new Texture(Gdx.files.internal("coin.png"));
     }
 
+
+    public void updateGold(int gold) {
+
+    }
+
     public void render() {
         float W = Gdx.graphics.getWidth();
         float H = Gdx.graphics.getHeight();
@@ -60,7 +65,7 @@ public class PlayerHud {
         // Złoto
         batch.draw(coinTexture, 10, hudY - 5, 22, 22);
         font.setColor(GOLD_COLOR);
-        font.draw(batch, "" + game.player.gold, 38, hudY + 12);
+        font.draw(batch, "" + game.globalGold, 38, hudY + 12);
 
         if (Gdx.input.isKeyJustPressed(com.badlogic.gdx.Input.Keys.TAB)) {
             showExtraStats = !showExtraStats;

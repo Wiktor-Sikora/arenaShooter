@@ -23,6 +23,9 @@ public abstract class Enemy extends Entity {
     protected Sound deathSound;
     protected float stateTime = 0f;
 
+    public boolean isRemote = false;
+    public int lastHitByPlayerId = -1;
+
     // stats
     protected float projectileRange;
     protected float projectileSpeed;
@@ -57,7 +60,16 @@ public abstract class Enemy extends Entity {
         state = State.DEAD;
     }
 
+    public void setDeadState() {
+        healthBar.dispose();
+        state = State.DEAD;
+        stateTime = 0f;
+    }
+
     public void stepTowardsPlayer(float delta, float dx, float dy, float distanceToPlayer) {
+        if (isRemote) {
+            return;
+        }
         float newX = hitbox.x + (dx / distanceToPlayer) * speed * delta;
         float newY = hitbox.y + (dy / distanceToPlayer) * speed * delta;
 
