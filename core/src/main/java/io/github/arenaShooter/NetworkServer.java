@@ -550,6 +550,7 @@ public class NetworkServer implements Runnable {
 
             for (SocketAddress recipient : connectedClients.values()) {
                 sendTo(recipient, "BUY_ACK " + clientId + " " + globalGold + " " + itemId);
+                System.out.println("[SERVER] Sending BUY_ACK to all: " + clientId + " " + globalGold + " " + itemId);
             }
 
             return;

@@ -655,8 +655,10 @@ public class Main extends ApplicationAdapter {
         waveNumber++;
         gameState = GameState.PLAYING;
         syncHostGameStateIfNeeded();
-        shopUI.randomizeShop();
-        shopUI.resetWavePurchases();
+        if (shopUI != null) {
+            shopUI.randomizeShop();
+            shopUI.resetWavePurchases();
+        }
 
         if (menu.startMode == Menu.NetworkMode.CLIENT) {
             clearWorldCollections();
@@ -1269,9 +1271,9 @@ public class Main extends ApplicationAdapter {
 
     private void handleGoldMessage(String message) {
         String[] parts = message.split("\\s+");
-        if (parts.length < 2) return; // format "GOLD <nowe_złoto>"
+        if (parts.length < 2) return;
         try {
-            int newGold = Integer.parseInt(parts[1]); // parts[1], nie parts[2]!
+            int newGold = Integer.parseInt(parts[1]);
             Gdx.app.postRunnable(() -> {
                 globalGold = newGold;
                 if (shopUI != null) shopUI.updateGold(globalGold);
@@ -1296,13 +1298,18 @@ public class Main extends ApplicationAdapter {
             final int newGold = Integer.parseInt(parts[2]);
             final String itemId = parts[3];
 
+            System.out.println("[CLIENT] BUY_ACK: buyer=" + buyerId + ", myId=" + (networkClient != null ? networkClient.getClientId() : "null") + ", newGold=" + newGold + ", item=" + itemId);
+
             Gdx.app.postRunnable(() -> {
                 globalGold = newGold;
                 if (shopUI != null) {
                     shopUI.updateGold(globalGold);
-                    if (networkClient != null && buyerId.equals(networkClient.getClientId())) {
-                        shopUI.applyPurchase(itemId, Main.this);
-                    }
+                    if (playerHud != null) playerHud.updateGold(globalGold);
+                }
+                // Tylko kupujący stosuje efekt
+                if (networkClient != null && buyerId.equals(networkClient.getClientId())) {
+                    System.out.println("[CLIENT] Applying purchase for " + buyerId);
+                    shopUI.applyPurchase(itemId, Main.this);
                 }
             });
         }
@@ -1560,13 +1567,13 @@ public class Main extends ApplicationAdapter {
                     if (!player.weapon.name.equals(rweapon)) {
                         switch (rweapon) {
                             case "Gun":
-                                player.equipWeapon(new Gun(this));
+                                player.equipWeapon(defaultGun);
                                 break;
                             case "Shotgun":
-                                player.equipWeapon(new Shotgun(this));
+                                player.equipWeapon(shotgun);
                                 break;
                             case "Uzi":
-                                player.equipWeapon(new Uzi(this));
+                                player.equipWeapon(uzi);
                                 break;
                         }
                         player.weapon.damage += player.dmg;

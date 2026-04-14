@@ -194,6 +194,7 @@ public class ShopUI {
 
     public void applyPurchase(String itemId, Main game) {
         Player player = game.player;
+        System.out.println("[ShopUI] Applying purchase: " + itemId + ", current weapon: " + (player.weapon != null ? player.weapon.name : "null"));
         switch (itemId) {
             case "HEALTH_POTION":
                 if (player.health < player.maxHealth) {
@@ -201,14 +202,17 @@ public class ShopUI {
                 }
                 break;
             case "GUN":
+                if (game.defaultGun == null) { System.err.println("defaultGun is null!"); return; }
                 player.equipWeapon(game.defaultGun);
                 player.weapon.damage = game.defaultGun.damage + player.dmg;
                 break;
             case "SHOTGUN":
+                if (game.shotgun == null) { System.err.println("shotgun is null!"); return; }
                 player.equipWeapon(game.shotgun);
                 player.weapon.damage = game.shotgun.damage + player.dmg;
                 break;
             case "UZI":
+                if (game.uzi == null) { System.err.println("uzi is null!"); return; }
                 player.equipWeapon(game.uzi);
                 player.weapon.damage = game.uzi.damage + player.dmg;
                 break;
