@@ -196,7 +196,7 @@ public class ShopUI {
         Player player = game.player;
         System.out.println("[ShopUI] Applying purchase: " + itemId + ", current weapon: " + (player.weapon != null ? player.weapon.name : "null"));
         switch (itemId) {
-            case "HEALTH_POTION":
+            case "HEALTH POTION":
                 if (player.health < player.maxHealth) {
                     player.health = Math.min(player.health + POTION_HEAL, player.maxHealth);
                 }
@@ -216,11 +216,11 @@ public class ShopUI {
                 player.equipWeapon(game.uzi);
                 player.weapon.damage = game.uzi.damage + player.dmg;
                 break;
-            case "WINGED_BOOTS":
+            case "WINGED BOOTS":
                 player.speed += BOOT_BOOST;
                 game.playerSpeedBonus += BOOT_BOOST;
                 break;
-            case "LIFE_FRUIT":
+            case "LIFE FRUIT":
                 player.maxHealth += LIFE_FRUIT_BOOST;
                 game.playerMaxHpBonus += LIFE_FRUIT_BOOST;
                 player.health = player.maxHealth;
