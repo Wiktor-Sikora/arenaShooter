@@ -217,16 +217,19 @@ public class ShopUI {
                 player.equipWeapon(game.uzi);
                 player.weapon.damage = game.uzi.damage + player.dmg;
                 break;
+            case "WINGED":
             case "WINGED BOOTS":
                 player.speed += BOOT_BOOST;
                 game.playerSpeedBonus += BOOT_BOOST;
                 break;
+            case "LIFE":
             case "LIFE FRUIT":
                 player.maxHealth += LIFE_FRUIT_BOOST;
                 game.playerMaxHpBonus += LIFE_FRUIT_BOOST;
                 player.health = player.maxHealth;
                 break;
-            case "STRENGTH_CHIP":
+            case "STRENGTH":
+            case "STRENGTH CHIP":
                 player.dmg += CHIP_BOOST;
                 game.playerDamageBonus += CHIP_BOOST;
                 if (player.weapon != null) player.weapon.damage += CHIP_BOOST;

@@ -542,13 +542,16 @@ public class NetworkServer implements Runnable {
                         state.hp = Math.min(state.hp + ShopUI.POTION_HEAL, maxHp);
                         System.out.println("[SERVER] HEALTH_POTION: " + oldHp + " -> " + state.hp);
                         break;
+                    case "WINGED":
                     case "WINGED BOOTS":
                         state.speedBonus += ShopUI.BOOT_BOOST;
                         break;
+                    case "LIFE":
                     case "LIFE FRUIT":
                         state.maxHpBonus += ShopUI.LIFE_FRUIT_BOOST;
                         state.hp = 100 + state.maxHpBonus; // pełne leczenie
                         break;
+                    case "STRENGTH":
                     case "STRENGTH CHIP":
                         state.damageBonus += ShopUI.CHIP_BOOST;
                         break;
