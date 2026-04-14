@@ -232,7 +232,7 @@ public class ShopUI {
             case "STRENGTH CHIP":
                 player.dmg += CHIP_BOOST;
                 game.playerDamageBonus += CHIP_BOOST;
-                if (player.weapon != null) player.weapon.damage += CHIP_BOOST;
+//                if (player.weapon != null) player.weapon.damage += CHIP_BOOST;
                 break;
         }
     }

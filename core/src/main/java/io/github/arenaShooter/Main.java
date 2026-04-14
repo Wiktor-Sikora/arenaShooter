@@ -1566,6 +1566,7 @@ public class Main extends ApplicationAdapter {
             int playerStartIndex = 10;
             Set<Integer> currentRemoteIds = new HashSet<>();
 
+
             for (int i = 0; i < playerCount; i++) {
                 int index = playerStartIndex + i;
                 if (index >= parts.length) break;
