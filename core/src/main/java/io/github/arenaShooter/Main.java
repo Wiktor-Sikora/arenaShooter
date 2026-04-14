@@ -360,9 +360,6 @@ public class Main extends ApplicationAdapter {
             sendNetworkInput();
             return;
         } else if (gameState == GameState.DEAD) {
-            if (menu.startMode == Menu.NetworkMode.HOST) {
-                if (Gdx.input.isKeyJustPressed(Input.Keys.ENTER)) restartGame();
-            }
             if (Gdx.input.isKeyJustPressed(Input.Keys.ESCAPE)) Gdx.app.exit();
             if (Gdx.input.isKeyJustPressed(Input.Keys.Q)) returnToMenu();
         } else if (gameState == GameState.STORE) {
@@ -584,14 +581,8 @@ public class Main extends ApplicationAdapter {
             drawCenteredText("You are dead", centerY + 20, 5f);
 
             font.setColor(Color.LIGHT_GRAY);
-            if (this.menu.startMode == Menu.NetworkMode.HOST) {
-                drawCenteredText("Press [Enter] to restart", centerY - 55, 1.2f);
-                drawCenteredText("Press [Esc] to quit", centerY - 80, 1.2f);
-                drawCenteredText("Press [q] to return to menu", centerY - 105, 1.2f);
-            } else {
                 drawCenteredText("Press [Esc] to quit", centerY - 55, 1.2f);
                 drawCenteredText("Press [q] to return to menu", centerY - 80, 1.2f);
-            }
 
             drawCenteredText(String.format("Gold earned: %d / %d", player.goldEarned, scores.goldEarned), centerY - 130, 1.2f);
             drawCenteredText(String.format("Enemies killed: %d / %d", player.enemiesKilled, scores.enemiesKilled), centerY - 150, 1.2f);
@@ -775,58 +766,6 @@ public class Main extends ApplicationAdapter {
         }
     }
 
-
-    private void restartGame() {
-        for (RemotePlayerState state : remotePlayers.values()) {
-            if (state.healthBar != null) {
-                state.healthBar.dispose();
-            }
-        }
-        remotePlayers.clear();
-
-        playerSpeedBonus = 0;
-        playerMaxHpBonus = 0;
-        playerDamageBonus = 0;
-
-        if (menu.startMode == Menu.NetworkMode.HOST) {
-            player.dispose();
-            player = new Player(AREA_OFFSET + PLAYABLE_AREA_SIZE / 2, AREA_OFFSET + PLAYABLE_AREA_SIZE / 2, this);
-            shopUI.dispose();
-            shopUI = new ShopUI(this);
-        } else {
-            clientTargetX = AREA_OFFSET + PLAYABLE_AREA_SIZE / 2f;
-            clientTargetY = AREA_OFFSET + PLAYABLE_AREA_SIZE / 2f;
-            clientPrevX = clientTargetX;
-            clientPrevY = clientTargetY;
-            clientInterpTimer = 0f;
-            clientMoving = false;
-
-            player.health = 100;
-            player.hitbox.setPosition(clientTargetX, clientTargetY);
-        }
-
-        waveNumber = 0;
-        globalGold = 0;
-        globalGoldEarned = 0;
-
-        if (menu.startMode == Menu.NetworkMode.HOST && networkConnected) {
-            try { networkClient.sendMessage("RESTART " + networkClient.getClientId()); } catch (IOException e) {}
-        }
-
-        for (int i = 0; i < bullets.size; i++) {
-            bullets.get(i).dispose();
-            bullets.removeIndex(i);
-            i--;
-        }
-        for (int i = 0; i < enemies.size; i++) {
-            enemies.get(i).dispose();
-            enemies.removeIndex(i);
-            i--;
-        }
-
-        startNextWave();
-    }
-
     private void returnToMenu() {
         player.dispose();
         player = new Player(AREA_OFFSET + PLAYABLE_AREA_SIZE / 2, AREA_OFFSET + PLAYABLE_AREA_SIZE / 2, this);
@@ -974,13 +913,6 @@ public class Main extends ApplicationAdapter {
         }
         if (message.startsWith("GAME_OVER")) {
             Gdx.app.postRunnable(() -> gameState = GameState.DEAD);
-            return;
-        }
-        if (message.startsWith("RESTART")) {
-            Gdx.app.postRunnable(() -> {
-                gameState = GameState.PLAYING;
-                restartGame();
-            });
             return;
         }
         if (!message.startsWith("SNAPSHOT ")) {
