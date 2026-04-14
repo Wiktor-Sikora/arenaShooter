@@ -759,6 +759,16 @@ public class Main extends ApplicationAdapter {
         waveNumber = 0;
         globalGold = 0;
         globalGoldEarned = 0;
+
+        playerSpeedBonus = 0;
+        playerMaxHpBonus = 0;
+        playerDamageBonus = 0;
+
+        for (RemotePlayerState state : remotePlayers.values()) {
+            if (state.healthBar != null) {
+                state.healthBar.dispose();
+            }
+        }
         remotePlayers.clear();
 
         if (menu.startMode == Menu.NetworkMode.HOST && networkConnected) {

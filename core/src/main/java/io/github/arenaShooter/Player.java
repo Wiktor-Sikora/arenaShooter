@@ -80,9 +80,6 @@ public class  Player extends Entity {
     }
 
     public void equipWeapon(Weapon newWeapon) {
-        if(this.weapon != null) {
-            this.weapon.dispose();
-        }
         this.weapon = newWeapon;
         System.out.println("Selected weapon: " + newWeapon.name);
     }
