@@ -194,16 +194,14 @@ public class Main extends ApplicationAdapter {
         float displayY;
         float displayRotation;
 
-        // Dane z poprzedniego pakietu
         float prevX;
         float prevY;
 
-        // Dane z najnowszego pakietu
         float targetX;
         float targetY;
         float targetRotation;
 
-        float interpolationTimer = 0f; // Licznik czasu między pakietami
+        float interpolationTimer = 0f;
         float hp;
         String weaponName;
         boolean dead = false;
@@ -1664,7 +1662,6 @@ public class Main extends ApplicationAdapter {
                 }
             }
 
-            // Usuwanie graczy, którzy nie pojawili się w tym snapshotcie
             for (Integer id : new ArrayList<>(remotePlayers.keySet())) {
                 if (!currentRemoteIds.contains(id)) {
                     RemotePlayerState removed = remotePlayers.remove(id);
@@ -1704,7 +1701,6 @@ public class Main extends ApplicationAdapter {
         for (RemotePlayerState state : remotePlayers.values()) {
             if (state.dead) continue;
 
-            // 1. Logika wyboru animacji (Skopiowana z Player.java)
             float angle = state.displayRotation;
             boolean remoteFacingLeft = false;
             TextureRegion frame;
@@ -1726,20 +1722,17 @@ public class Main extends ApplicationAdapter {
             boolean weaponBehind = (angle > 45 && angle < 135);
             if (weaponBehind) drawRemoteWeapon(batch, state);
 
-            // 3. Rysowanie postaci (PIONOWO, bez obrotu, z ewentualnym flipem)
             float drawX = state.displayX;
             float drawY = state.displayY;
-            float tw = 64f; // textureWidth z Player
-            float th = 64f; // textureHeight z Player
+            float tw = 64f;
+            float th = 64f;
 
             if (remoteFacingLeft) {
-                // Rysujemy odbite lustrzanie (negatywna szerokość)
                 batch.draw(frame, drawX + tw, drawY, -tw, th);
             } else {
                 batch.draw(frame, drawX, drawY, tw, th);
             }
 
-            // 4. Rysowanie broni PRZED postacią
             if (!weaponBehind) drawRemoteWeapon(batch, state);
         }
     }
@@ -1770,22 +1763,20 @@ public class Main extends ApplicationAdapter {
             renderRotation = -90; // Dół
         }
 
-        // 2. Pobieranie offsetów na podstawie nazwy broni
         float offsetX = 0;
         float offsetY = 0;
 
-        // Współrzędne środka postaci (analogicznie do getCenterX/Y)
         float centerX = state.displayX + 32f;
         float centerY = state.displayY + 32f;
 
-        if (renderRotation == 90) { // GÓRA (Wspólne dla wszystkich)
+        if (renderRotation == 90) {
             offsetX = -10;
             offsetY = 25;
-        } else if (renderRotation == -90) { // DÓŁ (Wspólne dla wszystkich)
+        } else if (renderRotation == -90) {
             offsetX = 0;
             offsetY = -15;
         } else {
-            // BOKI - Tutaj bronie się różnią
+
             switch (state.weaponName) {
                 case "Shotgun":
                     offsetX = flipped ? -28 : -3;

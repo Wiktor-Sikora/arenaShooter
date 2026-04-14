@@ -307,7 +307,6 @@ public class NetworkServer implements Runnable {
             int selfGoldEarned = selfState == null ? 0 : selfState.goldEarned;
             int selfKills = selfState == null ? 0 : selfState.enemiesKilled;
 
-            // Usuń całkowicie linię z selfGold
             StringBuilder payload = new StringBuilder("SNAPSHOT ")
                 .append(serverTick).append(' ')
                 .append(selfId).append(' ')
