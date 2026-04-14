@@ -537,7 +537,9 @@ public class NetworkServer implements Runnable {
                         break;
                     case "HEALTH_POTION":
                         float maxHp = 100 + state.maxHpBonus;
+                        float oldHp = state.hp;
                         state.hp = Math.min(state.hp + ShopUI.POTION_HEAL, maxHp);
+                        System.out.println("[SERVER] HEALTH_POTION: " + oldHp + " -> " + state.hp);
                         break;
                     case "WINGED_BOOTS":
                         state.speedBonus += ShopUI.BOOT_BOOST;
