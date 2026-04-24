@@ -78,8 +78,7 @@ public class LobbyMenu {
 
     public void handleInput() {
         if (Gdx.input.isKeyJustPressed(Input.Keys.Q)) {
-            main.menu.setStatus("TAB switch field, type value. F1 Host, F2 Join");
-            main.gameState = Main.GameState.MENU;
+            main.leaveLobbyToMenu();
         }
 
         if (Gdx.input.isKeyJustPressed(Input.Keys.R)) {

@@ -173,3 +173,6 @@ score.db
 
 # last_ip
 /assets/last_ip.txt
+
+# logs
+log.txt

@@ -141,6 +141,8 @@ public class Main extends ApplicationAdapter {
     private Map<String, float[]> remoteWeaponDimensions = new HashMap<>();
 
     private static final String LAST_IP_FILE = "last_ip.txt";
+    private boolean gameStartLogged = false;
+    private boolean gameEndLogged = false;
 
     private void saveLastIp(String ip) {
         try (BufferedWriter writer = new BufferedWriter(new FileWriter(LAST_IP_FILE))) {
@@ -437,6 +439,7 @@ public class Main extends ApplicationAdapter {
             }
 
             if (player.health <= 0) {
+                logGameEndedIfNeeded();
                 player.healthBar.dispose();
                 player.dispose();
 
@@ -655,6 +658,11 @@ public class Main extends ApplicationAdapter {
 
         waveNumber++;
         gameState = GameState.PLAYING;
+        if (!gameStartLogged) {
+            GameLogger.log("INFO", "Game has started");
+            gameStartLogged = true;
+            gameEndLogged = false;
+        }
         syncHostGameStateIfNeeded();
         if (shopUI != null) {
             shopUI.randomizeShop();
@@ -758,6 +766,13 @@ public class Main extends ApplicationAdapter {
         }
     }
 
+    private void logGameEndedIfNeeded() {
+        if (!gameEndLogged) {
+            GameLogger.log("INFO", "Game has ended");
+            gameEndLogged = true;
+        }
+    }
+
     private int parseIntSafe(String s) {
         try {
             return Integer.parseInt(s.replaceAll(",", "").trim());
@@ -767,11 +782,14 @@ public class Main extends ApplicationAdapter {
     }
 
     private void returnToMenu() {
+        shutdownNetworking();
         player.dispose();
         player = new Player(AREA_OFFSET + PLAYABLE_AREA_SIZE / 2, AREA_OFFSET + PLAYABLE_AREA_SIZE / 2, this);
         shopUI.dispose();
         shopUI = new ShopUI(this);
         waveNumber = 0;
+        gameStartLogged = false;
+        gameEndLogged = false;
 
         for (int i = 0; i < bullets.size; i++) {
             bullets.get(i).dispose();
@@ -796,7 +814,20 @@ public class Main extends ApplicationAdapter {
         gameState = GameState.MENU;
     }
 
+    public void leaveLobbyToMenu() {
+        shutdownNetworking();
+        menu.setStatus("TAB switch field, type value. F1 Host, F2 Join");
+        gameState = GameState.MENU;
+        gameStartLogged = false;
+        gameEndLogged = false;
+    }
+
     private void shutdownNetworking() {
+        if (menu != null && menu.startMode == Menu.NetworkMode.CLIENT
+            && networkClient != null && networkClient.isConnected()) {
+            GameLogger.log("INFO", "Client quit game");
+        }
+
         if (networkClient != null) {
             networkClient.disconnect();
         }
@@ -912,7 +943,12 @@ public class Main extends ApplicationAdapter {
             return;
         }
         if (message.startsWith("GAME_OVER")) {
-            Gdx.app.postRunnable(() -> gameState = GameState.DEAD);
+            Gdx.app.postRunnable(() -> {
+                if (gameState != GameState.DEAD) {
+                    logGameEndedIfNeeded();
+                    gameState = GameState.DEAD;
+                }
+            });
             return;
         }
         if (!message.startsWith("SNAPSHOT ")) {
@@ -946,6 +982,8 @@ public class Main extends ApplicationAdapter {
         lobbyPlayers.clear();
         remotePlayers.clear();
         lobbyStatus = "Connecting...";
+        gameStartLogged = false;
+        gameEndLogged = false;
 
         networkClient = new NetworkClient();
         networkClient.addMessageListener(this::handleNetworkMessage);
@@ -972,6 +1010,9 @@ public class Main extends ApplicationAdapter {
                 menu.setStatus("Host started, but local client connection failed.");
                 networkConnected = false;
             }
+            if (networkConnected) {
+                GameLogger.log("INFO", "Host begun a game on " + resolveLocalHostingIp() + ":" + menu.getPort());
+            }
         } else if (selectedMode == Menu.NetworkMode.CLIENT) {
             try {
                 String clientHost = menu.getClientHost();
@@ -989,6 +1030,7 @@ public class Main extends ApplicationAdapter {
                 menu.setStatus("Connection refused/time out. Press F2 to retry or F1 to host.");
                 return;
             }
+            GameLogger.log("INFO", "Client connected to server " + menu.getClientHost() + ":" + menu.getPort());
         }
 
         if (!networkConnected) {
@@ -1113,6 +1155,9 @@ public class Main extends ApplicationAdapter {
 
             Gdx.app.postRunnable(() -> {
                 waveNumber = incomingWave;
+                if (incomingState == GameState.DEAD && gameState != GameState.DEAD) {
+                    logGameEndedIfNeeded();
+                }
                 gameState = incomingState;
                 if (incomingState == GameState.STORE && shopUI != null) {
                     shopUI.randomizeShop();
